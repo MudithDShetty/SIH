@@ -1,0 +1,5 @@
+path: C:/Users/mudit/OneDrive/Desktop/SIH/fsoc-virtual-tracker/data
+train: images/train
+val: images/val
+names:
+  0: beacon

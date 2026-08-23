@@ -1,0 +1,8 @@
+pygame
+numpy
+opencv-python
+filterpy
+ultralytics
+pandas
+streamlit
+matplotlib

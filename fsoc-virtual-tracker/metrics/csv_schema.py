@@ -1,0 +1,15 @@
+"""CSV column names for run logs (no simulation imports)."""
+
+CSV_COLUMNS = [
+    "timestamp",
+    "fps",
+    "tracking_state",
+    "pixel_error",
+    "turbulence_strength",
+    "vibration_amplitude",
+    "sensor_noise_level",
+    "link_readiness_score",
+    "cumulative_lost_seconds",
+    "reacquisition_count",
+    "active_detector",
+]

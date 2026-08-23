@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+runs/
+.pytest_cache/
+*.egg-info/
+
+# Regenerate with scripts/generate_training_data.py (~125 MB)
+data/images/
+data/labels/
+
+# Keep trained weights for submission
+!weights/
+!weights/*.pt
