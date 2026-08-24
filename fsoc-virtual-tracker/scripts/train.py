@@ -66,6 +66,7 @@ def main() -> None:
     parser.add_argument("--model", default="yolov8n.pt")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--imgsz", type=int, default=320)
+    parser.add_argument("--name", default="train", help="Ultralytics run name")
     parser.add_argument(
         "--weights-out",
         type=Path,
@@ -77,6 +78,7 @@ def main() -> None:
         model_name=args.model,
         epochs=args.epochs,
         imgsz=args.imgsz,
+        name=args.name,
         weights_out=args.weights_out,
     )
 
