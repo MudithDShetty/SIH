@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from utils.device import device_label, yolo_device
+
 DEFAULT_WEIGHTS = Path(__file__).resolve().parents[1] / "weights" / "beacon_yolov8n.pt"
 
 
@@ -23,6 +25,8 @@ class AIDetector:
                 "Run scripts/train.py after generating data."
             )
         self.model = YOLO(str(self.weights_path))
+        self.device = yolo_device()
+        print(f"AIDetector using {device_label()}")
 
     def detect(self, camera_view_bgr: np.ndarray) -> tuple[float, float] | None:
         if camera_view_bgr.size == 0:
@@ -32,6 +36,7 @@ class AIDetector:
             source=camera_view_bgr,
             conf=self.confidence_threshold,
             verbose=False,
+            device=self.device,
         )
         if not results:
             return None

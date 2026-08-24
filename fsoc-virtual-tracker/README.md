@@ -17,6 +17,23 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### GPU support (RTX / CUDA)
+
+Ultralytics installs CPU-only PyTorch by default. For NVIDIA GPUs (e.g. RTX 4060):
+
+```bash
+pip uninstall -y torch torchvision
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+```
+
+Verify:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+Training and AI inference auto-select GPU when available.
+
 ## Run
 
 ```bash

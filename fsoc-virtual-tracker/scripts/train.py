@@ -13,6 +13,8 @@ sys.path.insert(0, str(ROOT))
 
 from ultralytics import YOLO
 
+from utils.device import device_label, yolo_device
+
 
 def train(
     data_yaml: Path,
@@ -30,6 +32,8 @@ def train(
         )
 
     model = YOLO(model_name)
+    device = yolo_device()
+    print(f"Training on {device_label()}")
     results = model.train(
         data=str(data_yaml),
         epochs=epochs,
@@ -37,6 +41,7 @@ def train(
         project=project,
         name=name,
         verbose=True,
+        device=device,
     )
 
     best_weights = Path(results.save_dir) / "weights" / "best.pt"
