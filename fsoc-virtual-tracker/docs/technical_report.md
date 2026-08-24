@@ -99,17 +99,15 @@ On LOST, `ReacquisitionController` generates a spiral waypoint sequence biased a
 2. **Training:** `scripts/train.py` — YOLOv8n, 320×320, copies best weights to `weights/beacon_yolov8n.pt`  
 3. **Runtime:** Lazy-loaded `AIDetector` — same API as classical  
 
-### Honest comparison (turb=4, vib=8, noise=0.2, 60 s, seed=42)
+### Honest comparison — scenario matrix (45 s, seed=42, 50-epoch GPU YOLO)
 
-50-epoch YOLOv8n trained on RTX 4060 (mAP50 ≈ 0.995 on synthetic val).
+| Scenario | Classical err | AI err | Classical lock | AI lock | Notes |
+|---|---|---|---|---|---|
+| Calm | 35.5 px | 35.5 px | 100% | 100% | Tie — detection is easy |
+| UAV | 35.6 px | 35.6 px | 97.7% | **100%** | AI wins lock retention |
+| Stress | **35.1 px** | 36.1 px | 95.5% | 95.5% | Classical wins mean error |
 
-| Metric | Classical | AI |
-|---|---|---|
-| Avg pixel error | 35.1 px | 36.1 px |
-| Lock retention | 98.3% | 100.0% |
-| Re-acquisitions | 2 | 1 |
-
-**Interpretation:** Classical slightly wins mean pixel error (~2.8%). AI improves lock stability (100% LOCKED, fewer re-acquisitions). This is a credible tradeoff under moderate turbulence — not a failure of either detector.
+**Interpretation:** Pixel error floor (~35 px) is mostly slew lag on circular motion, not detector failure. AI's value shows up as **fewer lock breaks** under UAV disturbance. Stress (turbulence 7) exceeds the training curriculum (turbulence 0–5), so AI is partly out-of-distribution there. Recommended next step: extend synthetic data to turb 0–8 and retrain before claiming Stress superiority.
 
 ---
 

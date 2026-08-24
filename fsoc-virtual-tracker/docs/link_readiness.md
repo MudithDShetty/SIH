@@ -118,15 +118,18 @@ python scripts/run_comparison.py --duration 60
 
 Compare in `streamlit run report.py` using the `classical_turb4_vib8_noise0.2.csv` and `ai_turb4_vib8_noise0.2.csv` files.
 
-### Latest benchmark (turb=4, vib=8, noise=0.2, 60 s, seed=42)
+### Scenario matrix (45 s each, seed=42, 50-epoch GPU weights)
 
-50-epoch YOLO weights trained on RTX 4060 (`weights/beacon_yolov8n.pt`).
+| Scenario | Settings | Classical err | AI err | Classical lock | AI lock | Winner |
+|---|---|---|---|---|---|---|
+| Calm | turb0 / vib0 / noise0.05 | 35.5 px | 35.5 px | 100% | 100% | Tie |
+| UAV | turb4 / vib8 / noise0.2 | 35.6 px | 35.6 px | 97.7% | **100%** | AI (lock) |
+| Stress | turb7 / vib15 / noise0.35 | **35.1 px** | 36.1 px | 95.5% | 95.5% | Classical (error) |
 
-| Metric | Classical | AI |
-|---|---|---|
-| Avg pixel error | 35.1 px | 36.1 px |
-| Avg link readiness | 0.839 | 0.840 |
-| % LOCKED | 98.3% | 100.0% |
-| Re-acquisitions | 2 | 1 |
+**Interpretation:** Mean pixel error is dominated by camera slew lag on the circular orbit (~35 px even in Calm), not detector noise. AI's real advantage at UAV is **lock retention**. Under Stress, classical still slightly wins mean error — and Stress (turb=7) is partly **out of distribution** for training (data generator used turb 0–5). Next upgrade: regenerate data with turb up to 8+, retrain, re-run Stress.
 
-Under these moderate-disturbance settings, classical thresholding still slightly wins mean pixel error (~2.8%). AI holds lock better (100% LOCKED, 1 re-acq vs 2). Report both metrics honestly — stability vs mean error is a real tradeoff at this disturbance level.
+CSVs: `logs/classical_turb*_*.csv` and `logs/ai_turb*_*.csv`. Run matrix with:
+```bash
+python scripts/run_comparison.py --matrix --duration 45
+```
+

@@ -251,6 +251,80 @@ def print_comparison_summary(classical_path: Path, ai_path: Path) -> None:
     print(f"Compare: {classical_path.name} vs {ai_path.name}\n")
 
 
+def print_matrix_summary(results: list[tuple[str, object, object]]) -> None:
+    print("\n=== Scenario Matrix: Classical vs AI ===")
+    print(
+        f"{'Scenario':<10} {'C err':>8} {'AI err':>8} {'Δerr%':>8} "
+        f"{'C lock%':>8} {'AI lock%':>8} {'C reacq':>8} {'AI reacq':>8} {'Winner':>10}"
+    )
+    print("-" * 90)
+    for label, classical, ai in results:
+        if classical.avg_pixel_error > 0:
+            delta_pct = 100.0 * (classical.avg_pixel_error - ai.avg_pixel_error) / classical.avg_pixel_error
+        else:
+            delta_pct = 0.0
+        if ai.avg_pixel_error < classical.avg_pixel_error * 0.98:
+            winner = "AI"
+        elif classical.avg_pixel_error < ai.avg_pixel_error * 0.98:
+            winner = "Classical"
+        else:
+            winner = "Tie"
+        # Prefer lock retention as tie-breaker for "better under stress"
+        if winner == "Tie" and ai.pct_locked > classical.pct_locked + 1.0:
+            winner = "AI (lock)"
+        elif winner == "Tie" and classical.pct_locked > ai.pct_locked + 1.0:
+            winner = "Class (lock)"
+        print(
+            f"{label:<10} {classical.avg_pixel_error:>8.2f} {ai.avg_pixel_error:>8.2f} "
+            f"{delta_pct:>+7.1f}% {classical.pct_locked:>8.1f} {ai.pct_locked:>8.1f} "
+            f"{classical.total_reacquisitions:>8} {ai.total_reacquisitions:>8} {winner:>10}"
+        )
+    print("=" * 90)
+    print("Δerr% > 0 means AI has lower mean pixel error than classical.\n")
+
+
+def run_pair(
+    logs_dir: Path,
+    duration: float,
+    fps: int,
+    turbulence: float,
+    vibration: float,
+    sensor_noise: float,
+    seed: int,
+    label: str = "",
+) -> tuple[Path, Path]:
+    tag = f"turb{turbulence:g}_vib{vibration:g}_noise{sensor_noise:g}"
+    classical_path = logs_dir / f"classical_{tag}.csv"
+    ai_path = logs_dir / f"ai_{tag}.csv"
+    header = f"[{label}] " if label else ""
+    print(
+        f"\n{header}Settings: turbulence={turbulence}, vibration={vibration}, "
+        f"sensor_noise={sensor_noise}, seed={seed}"
+    )
+    run_benchmark(
+        "classical",
+        classical_path,
+        duration,
+        fps,
+        turbulence,
+        vibration,
+        sensor_noise,
+        seed,
+    )
+    run_benchmark(
+        "ai",
+        ai_path,
+        duration,
+        fps,
+        turbulence,
+        vibration,
+        sensor_noise,
+        seed,
+    )
+    print_comparison_summary(classical_path, ai_path)
+    return classical_path, ai_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run matched classical vs AI benchmark logs.")
     parser.add_argument("--duration", type=float, default=60.0, help="Seconds per run (default: 60)")
@@ -260,23 +334,45 @@ def main() -> None:
     parser.add_argument("--sensor-noise", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42, help="Base RNG seed for matched disturbances")
     parser.add_argument("--logs-dir", type=Path, default=ROOT / "logs")
+    parser.add_argument(
+        "--matrix",
+        action="store_true",
+        help="Run Calm / UAV / Stress presets (matched classical vs AI each)",
+    )
     args = parser.parse_args()
 
     logs_dir = args.logs_dir
     logs_dir.mkdir(parents=True, exist_ok=True)
 
-    tag = f"turb{args.turbulence:g}_vib{args.vibration:g}_noise{args.sensor_noise:g}"
-    classical_path = logs_dir / f"classical_{tag}.csv"
-    ai_path = logs_dir / f"ai_{tag}.csv"
+    if args.matrix:
+        from report import load_run_csv, summarize_run
+        from ui.scenarios import PRESET_ORDER, PRESETS
 
-    print(
-        f"Settings: turbulence={args.turbulence}, vibration={args.vibration}, "
-        f"sensor_noise={args.sensor_noise}, seed={args.seed}"
-    )
+        matrix_results = []
+        for scenario_id in PRESET_ORDER:
+            preset = PRESETS[scenario_id]
+            classical_path, ai_path = run_pair(
+                logs_dir,
+                args.duration,
+                args.fps,
+                preset.turbulence,
+                preset.vibration,
+                preset.sensor_noise,
+                args.seed,
+                label=preset.label,
+            )
+            matrix_results.append(
+                (
+                    preset.label,
+                    summarize_run(load_run_csv(classical_path), classical_path.name),
+                    summarize_run(load_run_csv(ai_path), ai_path.name),
+                )
+            )
+        print_matrix_summary(matrix_results)
+        return
 
-    run_benchmark(
-        "classical",
-        classical_path,
+    run_pair(
+        logs_dir,
         args.duration,
         args.fps,
         args.turbulence,
@@ -284,17 +380,6 @@ def main() -> None:
         args.sensor_noise,
         args.seed,
     )
-    run_benchmark(
-        "ai",
-        ai_path,
-        args.duration,
-        args.fps,
-        args.turbulence,
-        args.vibration,
-        args.sensor_noise,
-        args.seed,
-    )
-    print_comparison_summary(classical_path, ai_path)
 
 
 if __name__ == "__main__":
