@@ -107,9 +107,11 @@ def random_scenario(config: Config) -> tuple[Target, VirtualCamera, TurbulenceMo
         fov_height=300,
         max_slew_rate=120.0,
     )
-    turbulence = TurbulenceModel(strength=random.uniform(0.0, 5.0))
-    vibration = VibrationModel(amplitude=random.uniform(0.0, 18.0))
-    sensor_noise = SensorNoiseModel(noise_level=random.uniform(0.0, 0.65))
+    # Cover Calm → Stress (Stress preset uses turb=7, vib=15, noise=0.35).
+    # Train slightly beyond Stress so inference stays in-distribution.
+    turbulence = TurbulenceModel(strength=random.uniform(0.0, 8.5))
+    vibration = VibrationModel(amplitude=random.uniform(0.0, 25.0))
+    sensor_noise = SensorNoiseModel(noise_level=random.uniform(0.0, 0.75))
     return target, camera, turbulence, vibration, sensor_noise
 
 

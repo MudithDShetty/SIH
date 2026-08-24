@@ -118,18 +118,13 @@ python scripts/run_comparison.py --duration 60
 
 Compare in `streamlit run report.py` using the `classical_turb4_vib8_noise0.2.csv` and `ai_turb4_vib8_noise0.2.csv` files.
 
-### Scenario matrix (45 s each, seed=42, 50-epoch GPU weights)
+### Scenario matrix after hard curriculum (turb 0–8.5, vib 0–25, 3000 frames, 50-epoch GPU)
 
-| Scenario | Settings | Classical err | AI err | Classical lock | AI lock | Winner |
+| Scenario | Classical err | AI err | Classical lock | AI lock | Reacq C/AI | Winner |
 |---|---|---|---|---|---|---|
-| Calm | turb0 / vib0 / noise0.05 | 35.5 px | 35.5 px | 100% | 100% | Tie |
-| UAV | turb4 / vib8 / noise0.2 | 35.6 px | 35.6 px | 97.7% | **100%** | AI (lock) |
-| Stress | turb7 / vib15 / noise0.35 | **35.1 px** | 36.1 px | 95.5% | 95.5% | Classical (error) |
+| Calm | 35.5 px | 35.5 px | 100% | 100% | 1 / 1 | Tie |
+| UAV | 35.6 px | **35.6 px** | 97.7% | **100%** | 1 / 1 | AI (lock) |
+| Stress | **35.1 px** | 36.1 px | 95.5% | 95.5% | 2 / **1** | Mixed |
 
-**Interpretation:** Mean pixel error is dominated by camera slew lag on the circular orbit (~35 px even in Calm), not detector noise. AI's real advantage at UAV is **lock retention**. Under Stress, classical still slightly wins mean error — and Stress (turb=7) is partly **out of distribution** for training (data generator used turb 0–5). Next upgrade: regenerate data with turb up to 8+, retrain, re-run Stress.
-
-CSVs: `logs/classical_turb*_*.csv` and `logs/ai_turb*_*.csv`. Run matrix with:
-```bash
-python scripts/run_comparison.py --matrix --duration 45
-```
+**Honest takeaway:** Extending training into Stress-range disturbances did **not** flip mean pixel error under Stress. That ~35 px floor is mostly **camera slew lag** on circular motion (present even in Calm), so mean error is a weak detector discriminator. AI's measurable value is **lock retention** (UAV) and **fewer re-acquisitions** (Stress: 1 vs 2). Lead the report with those metrics, not mean error alone.
 
