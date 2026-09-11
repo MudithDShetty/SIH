@@ -133,12 +133,26 @@ def generate_dataset(num_frames: int, data_dir: Path, seed: int = 42) -> int:
         attempts += 1
         target, camera, turbulence, vibration, sensor_noise = random_scenario(config)
         scene = Scene(config.screen_width, config.screen_height, targets=[target])
+        if random.random() < 0.55:
+            scene.enable_clutter(
+                star_count=random.randint(15, 70),
+                glint_count=random.randint(2, 12),
+                seed=seed + saved,
+            )
 
         warmup_frames = random.randint(1, 30)
         dt = 1.0 / config.fps
         for _ in range(warmup_frames):
             target.update(dt)
             vibration_offset_x, vibration_offset_y = vibration.update(dt)
+            atm = turbulence.update(dt)
+            wander_x, wander_y = turbulence.wander_offset_px(camera.ifov_urad)
+            target.set_optical_appearance(
+                draw_x=target.x + wander_x,
+                draw_y=target.y + wander_y,
+                spot_sigma_px=max(2.5, 2.5 + 0.4 * turbulence.strength),
+                intensity=atm.scintillation,
+            )
             scene.render(scene_surface)
             camera_view = camera.get_view(
                 scene_surface, vibration_offset_x, vibration_offset_y
@@ -147,8 +161,8 @@ def generate_dataset(num_frames: int, data_dir: Path, seed: int = 42) -> int:
             camera_view = sensor_noise.apply(camera_view)
 
             local_x, local_y = camera.scene_to_local(
-                target.x,
-                target.y,
+                target.draw_x,
+                target.draw_y,
                 vibration_offset_x,
                 vibration_offset_y,
             )

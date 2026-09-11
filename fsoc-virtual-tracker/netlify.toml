@@ -1,0 +1,22 @@
+# Static judge site for BeamLock (SIH26169).
+# The full Pygame prototype cannot run on Netlify; this hosts the browser demo + docs.
+[build]
+  publish = "site"
+  command = "echo Netlify static publish: site/"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[redirects]]
+  from = "/try"
+  to = "/demo.html"
+  status = 302
+
+[[redirects]]
+  from = "/arch"
+  to = "/architecture.html"
+  status = 302

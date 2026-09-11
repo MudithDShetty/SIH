@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -15,13 +16,17 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from metrics.csv_schema import CSV_COLUMNS
+from metrics.csv_schema import CSV_COLUMNS, LEGACY_REQUIRED_COLUMNS, OPTIONAL_COLUMNS
 
 LOGS_DIR = ROOT / "logs"
 STATE_COLORS = {
     "LOCKED": "#48dc78",
     "COASTING": "#f0c840",
     "LOST": "#eb5048",
+}
+STAGE_COLORS = {
+    "COARSE": "#5ab4ff",
+    "FINE": "#c084fc",
 }
 TRACKING_STATES = ("LOCKED", "COASTING", "LOST")
 
@@ -39,6 +44,8 @@ class RunSummary:
     active_detector: str
     row_count: int
     duration_seconds: float
+    avg_angular_error_urad: float = 0.0
+    handoff_count: int = 0
 
 
 def list_log_files() -> list[Path]:
@@ -50,14 +57,24 @@ def list_log_files() -> list[Path]:
 
 def load_run_csv(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path)
-    missing = [column for column in CSV_COLUMNS if column not in df.columns]
+    missing = [column for column in LEGACY_REQUIRED_COLUMNS if column not in df.columns]
     if missing:
         raise ValueError(f"Missing columns in {path.name}: {', '.join(missing)}")
 
-    df = df[CSV_COLUMNS].copy()
+    for column in OPTIONAL_COLUMNS:
+        if column not in df.columns:
+            df[column] = np.nan if column != "pat_stage" else "COARSE"
+
+    use_cols = [c for c in CSV_COLUMNS if c in df.columns]
+    df = df[use_cols].copy()
     numeric_columns = [
         "fps",
         "pixel_error",
+        "angular_error_urad",
+        "boresight_urad",
+        "az_urad",
+        "el_urad",
+        "handoff_count",
         "turbulence_strength",
         "vibration_amplitude",
         "sensor_noise_level",
@@ -66,11 +83,14 @@ def load_run_csv(path: Path) -> pd.DataFrame:
         "reacquisition_count",
     ]
     for column in numeric_columns:
-        df[column] = pd.to_numeric(df[column], errors="coerce")
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
 
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     df["tracking_state"] = df["tracking_state"].astype(str).str.upper()
     df["active_detector"] = df["active_detector"].astype(str).str.lower()
+    if "pat_stage" in df.columns:
+        df["pat_stage"] = df["pat_stage"].astype(str).str.upper().fillna("COARSE")
     df = df.dropna(subset=["timestamp", "fps", "pixel_error", "link_readiness_score"])
     df = df.reset_index(drop=True)
 
@@ -99,6 +119,17 @@ def summarize_run(df: pd.DataFrame, label: str) -> RunSummary:
     else:
         active_detector = ", ".join(sorted(detectors))
 
+    avg_urad = (
+        float(df["angular_error_urad"].mean())
+        if "angular_error_urad" in df.columns and df["angular_error_urad"].notna().any()
+        else 0.0
+    )
+    handoffs = (
+        int(df["handoff_count"].max())
+        if "handoff_count" in df.columns and df["handoff_count"].notna().any()
+        else 0
+    )
+
     return RunSummary(
         label=label,
         avg_fps=float(df["fps"].mean()),
@@ -111,6 +142,8 @@ def summarize_run(df: pd.DataFrame, label: str) -> RunSummary:
         active_detector=active_detector,
         row_count=total_rows,
         duration_seconds=duration,
+        avg_angular_error_urad=avg_urad,
+        handoff_count=handoffs,
     )
 
 
@@ -128,6 +161,11 @@ def render_session_summary(summary: dict) -> None:
     c2.metric("Lock retention", f"{summary.get('lock_retention_pct', 0):.1f}%")
     c3.metric("Avg acquisition", f"{summary.get('avg_acquisition_time_s', 0):.2f} s")
     c4.metric("Avg detect time", f"{summary.get('avg_processing_time_ms', 0):.2f} ms")
+    c5, c6, c7, c8 = st.columns(4)
+    c5.metric("RMS angular error", f"{summary.get('rms_angular_error_urad', 0):.0f} µrad")
+    c6.metric("Fine duty cycle", f"{summary.get('pct_fine', 0):.1f}%")
+    c7.metric("Handoffs", f"{summary.get('handoff_count', 0)}")
+    c8.metric("Detect p95", f"{summary.get('p95_processing_time_ms', 0):.1f} ms")
 
 
 def render_summary_cards(summary: RunSummary, session: dict | None = None) -> None:
@@ -135,15 +173,15 @@ def render_summary_cards(summary: RunSummary, session: dict | None = None) -> No
     row1 = st.columns(4)
     row1[0].metric("Avg FPS", f"{summary.avg_fps:.1f}")
     row1[1].metric("Avg Pixel Error", f"{summary.avg_pixel_error:.2f} px")
-    row1[2].metric("Avg Link Readiness", f"{summary.avg_link_readiness:.3f}")
-    row1[3].metric("Re-acquisitions", f"{summary.total_reacquisitions}")
+    row1[2].metric("Avg Angular Error", f"{summary.avg_angular_error_urad:.0f} µrad")
+    row1[3].metric("Avg Link Readiness", f"{summary.avg_link_readiness:.3f}")
 
     row2 = st.columns(5)
     row2[0].metric("LOCKED", f"{summary.pct_locked:.1f}%")
     row2[1].metric("COASTING", f"{summary.pct_coasting:.1f}%")
     row2[2].metric("LOST", f"{summary.pct_lost:.1f}%")
-    row2[3].metric("Detector", summary.active_detector)
-    row2[4].metric("Duration", f"{summary.duration_seconds:.0f}s ({summary.row_count} rows)")
+    row2[3].metric("Re-acquisitions", f"{summary.total_reacquisitions}")
+    row2[4].metric("Fine handoffs", f"{summary.handoff_count}")
     if session:
         render_session_summary(session)
 
@@ -170,6 +208,16 @@ def plot_tracking_state_strip(ax: plt.Axes, df: pd.DataFrame, title: str) -> Non
 def plot_run_charts(df: pd.DataFrame, title_prefix: str = "") -> None:
     prefix = f"{title_prefix} — " if title_prefix else ""
 
+    if "angular_error_urad" in df.columns and df["angular_error_urad"].notna().any():
+        fig_ang, ax_ang = plt.subplots(figsize=(10, 3))
+        ax_ang.plot(df["elapsed_s"], df["angular_error_urad"], color="#5ab4ff", linewidth=1.5)
+        ax_ang.set_title(f"{prefix}Angular Tracking Error (primary KPI)")
+        ax_ang.set_xlabel("Elapsed time (s)")
+        ax_ang.set_ylabel("Error (µrad)")
+        ax_ang.grid(alpha=0.25)
+        st.pyplot(fig_ang)
+        plt.close(fig_ang)
+
     fig_error, ax_error = plt.subplots(figsize=(10, 3))
     ax_error.plot(df["elapsed_s"], df["pixel_error"], color="#5ab4ff", linewidth=1.5)
     ax_error.set_title(f"{prefix}Pixel Tracking Error")
@@ -181,15 +229,37 @@ def plot_run_charts(df: pd.DataFrame, title_prefix: str = "") -> None:
 
     fig_ready, ax_ready = plt.subplots(figsize=(10, 3))
     ax_ready.plot(df["elapsed_s"], df["link_readiness_score"], color="#48dc78", linewidth=1.5)
-    ax_ready.axhline(0.7, color="#48dc78", linestyle="--", linewidth=0.8, alpha=0.5)
+    ax_ready.axhline(0.7, color="#48dc78", linestyle="--", linewidth=0.8, alpha=0.5, label="handoff enter")
+    ax_ready.axhline(0.55, color="#f0c840", linestyle="--", linewidth=0.8, alpha=0.5, label="handoff exit")
     ax_ready.axhline(0.3, color="#eb5048", linestyle="--", linewidth=0.8, alpha=0.5)
     ax_ready.set_ylim(0.0, 1.05)
-    ax_ready.set_title(f"{prefix}Link Readiness Score")
+    ax_ready.set_title(f"{prefix}Link Readiness + Handoff Gates")
     ax_ready.set_xlabel("Elapsed time (s)")
     ax_ready.set_ylabel("Score")
+    ax_ready.legend(loc="upper right", fontsize=8)
     ax_ready.grid(alpha=0.25)
     st.pyplot(fig_ready)
     plt.close(fig_ready)
+
+    if "pat_stage" in df.columns:
+        fig_stage, ax_stage = plt.subplots(figsize=(10, 1.2))
+        times = df["elapsed_s"].to_numpy()
+        segment_ends = list(times[1:]) + [times[-1] + 1.0]
+        for start, end, stage in zip(times, segment_ends, df["pat_stage"]):
+            color = STAGE_COLORS.get(str(stage).upper(), "#888888")
+            ax_stage.broken_barh([(start, max(end - start, 0.5))], (0.2, 0.6), facecolors=color)
+        ax_stage.set_yticks([])
+        ax_stage.set_xlim(float(times[0]), float(segment_ends[-1]))
+        ax_stage.set_ylim(0.0, 1.0)
+        ax_stage.set_title(f"{prefix}PAT Stage (COARSE / FINE handoff)")
+        ax_stage.set_xlabel("Elapsed time (s)")
+        legend_handles = [
+            plt.Line2D([0], [0], color=STAGE_COLORS[s], lw=8, label=s)
+            for s in ("COARSE", "FINE")
+        ]
+        ax_stage.legend(handles=legend_handles, loc="upper center", ncol=2, frameon=False)
+        st.pyplot(fig_stage)
+        plt.close(fig_stage)
 
     fig_state, ax_state = plt.subplots(figsize=(10, 1.2))
     plot_tracking_state_strip(ax_state, df, f"{prefix}Tracking State")
@@ -231,9 +301,11 @@ def build_report_text(summary: RunSummary, session: dict | None) -> str:
         f"Detector: {summary.active_detector}",
         f"Avg FPS: {summary.avg_fps:.1f}",
         f"Avg pixel error: {summary.avg_pixel_error:.2f} px",
+        f"Avg angular error: {summary.avg_angular_error_urad:.0f} µrad",
         f"Avg link readiness: {summary.avg_link_readiness:.3f}",
         f"LOCKED: {summary.pct_locked:.1f}%  COASTING: {summary.pct_coasting:.1f}%  LOST: {summary.pct_lost:.1f}%",
         f"Re-acquisitions: {summary.total_reacquisitions}",
+        f"Fine handoffs: {summary.handoff_count}",
     ]
     if session:
         lines.extend(
@@ -244,9 +316,78 @@ def build_report_text(summary: RunSummary, session: dict | None) -> str:
                 f"  Lock retention: {session.get('lock_retention_pct', 0):.1f}%",
                 f"  Avg acquisition time: {session.get('avg_acquisition_time_s', 0):.3f} s",
                 f"  Avg processing time: {session.get('avg_processing_time_ms', 0):.2f} ms",
+                f"  RMS angular error: {session.get('rms_angular_error_urad', 0):.0f} µrad",
+                f"  Fine duty cycle: {session.get('pct_fine', 0):.1f}%",
             ]
         )
     return "\n".join(lines)
+
+
+def build_report_pdf_bytes(
+    summary: RunSummary,
+    session: dict | None,
+    df: pd.DataFrame,
+) -> bytes:
+    """Judge-facing multi-page PDF (summary + KPI charts)."""
+    from io import BytesIO
+
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    buffer = BytesIO()
+    with PdfPages(buffer) as pdf:
+        fig, ax = plt.subplots(figsize=(8.5, 11))
+        ax.axis("off")
+        ax.set_title("FSOC Virtual Tracker — Performance Report", fontsize=14, pad=12)
+        ax.text(
+            0.05,
+            0.92,
+            build_report_text(summary, session),
+            transform=ax.transAxes,
+            va="top",
+            ha="left",
+            family="monospace",
+            fontsize=9,
+        )
+        pdf.savefig(fig)
+        plt.close(fig)
+
+        if "angular_error_urad" in df.columns and df["angular_error_urad"].notna().any():
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.plot(df["elapsed_s"], df["angular_error_urad"], color="#5ab4ff", linewidth=1.4)
+            ax.set_title("Angular Tracking Error")
+            ax.set_xlabel("Elapsed time (s)")
+            ax.set_ylabel("Error (µrad)")
+            ax.grid(alpha=0.25)
+            pdf.savefig(fig)
+            plt.close(fig)
+
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(df["elapsed_s"], df["pixel_error"], color="#5ab4ff", linewidth=1.4)
+        ax.set_title("Pixel Tracking Error")
+        ax.set_xlabel("Elapsed time (s)")
+        ax.set_ylabel("Error (px)")
+        ax.grid(alpha=0.25)
+        pdf.savefig(fig)
+        plt.close(fig)
+
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(df["elapsed_s"], df["link_readiness_score"], color="#48dc78", linewidth=1.4)
+        ax.axhline(0.7, color="#48dc78", linestyle="--", linewidth=0.8, alpha=0.5)
+        ax.axhline(0.55, color="#f0c840", linestyle="--", linewidth=0.8, alpha=0.5)
+        ax.set_ylim(0.0, 1.05)
+        ax.set_title("Link Readiness")
+        ax.set_xlabel("Elapsed time (s)")
+        ax.set_ylabel("Score")
+        ax.grid(alpha=0.25)
+        pdf.savefig(fig)
+        plt.close(fig)
+
+        fig, ax = plt.subplots(figsize=(10, 2.2))
+        plot_tracking_state_strip(ax, df, "Tracking State")
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    return buffer.getvalue()
 
 
 def file_label(path: Path) -> str:
@@ -343,6 +484,12 @@ def main() -> None:
             data=build_report_text(summary_a, session_a),
             file_name=f"{run_a_path.stem}_report.txt",
             mime="text/plain",
+        )
+        st.download_button(
+            "Download report (.pdf)",
+            data=build_report_pdf_bytes(summary_a, session_a, run_a_df),
+            file_name=f"{run_a_path.stem}_report.pdf",
+            mime="application/pdf",
         )
         st.subheader("Timeline")
         plot_run_charts(run_a_df)

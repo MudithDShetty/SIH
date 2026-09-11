@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 import pygame
 
+from physics.atmosphere import AtmosphericChannel, AtmosphericState
+
 
 def _surface_to_bgr(surface: pygame.Surface) -> np.ndarray:
     rgb = pygame.surfarray.array3d(surface)
@@ -18,35 +20,70 @@ def _bgr_to_surface(image: np.ndarray) -> pygame.Surface:
 
 
 class TurbulenceModel:
-    """Fast image-domain turbulence placeholder.
+    """Atmospheric turbulence for the coarse camera view.
 
-    A low-resolution random displacement field is smoothed and upsampled, then
-    applied with cv2.remap. This is a stand-in for a physically accurate
-    split-step / phase-screen propagation model.
+    UI ``strength`` (0–10) maps log-uniformly onto Cn² via ``AtmosphericChannel``.
+    Each frame:
+      - tip/tilt / beam wander (µrad) from the channel
+      - scintillation irradiance factor
+      - mild residual image warp as a higher-order (non-tilt) visual cue
 
-  strength scales displacement magnitude in pixels and is an approximate visual
-    proxy for optical severity: higher strength ~ stronger turbulence (larger
-    Cn^2, smaller Fried parameter r0). The mapping is qualitative only.
+    This is Andrews-style statistics for real-time PAT, not a phase-screen
+    propagator.
     """
 
     GRID_WIDTH = 8
     GRID_HEIGHT = 6
     MAX_STRENGTH = 10.0
 
-    def __init__(self, strength: float = 0.0) -> None:
+    def __init__(
+        self,
+        strength: float = 0.0,
+        channel: AtmosphericChannel | None = None,
+    ) -> None:
         self.strength = float(np.clip(strength, 0.0, self.MAX_STRENGTH))
+        self.channel = channel or AtmosphericChannel()
+        self.last_state: AtmosphericState = self.channel.last_state
 
     def adjust_strength(self, delta: float) -> float:
         self.strength = float(np.clip(self.strength + delta, 0.0, self.MAX_STRENGTH))
         return self.strength
 
+    def update(self, dt: float) -> AtmosphericState:
+        self.last_state = self.channel.update(self.strength, dt)
+        return self.last_state
+
+    @property
+    def cn2(self) -> float:
+        return self.last_state.cn2
+
+    @property
+    def r0_m(self) -> float:
+        return self.last_state.r0_m
+
+    @property
+    def scintillation(self) -> float:
+        return self.last_state.scintillation
+
+    def wander_offset_px(self, ifov_urad: float) -> tuple[float, float]:
+        """Beam-wander displacement on the focal plane (pixels)."""
+        scale = 1.0 / max(ifov_urad, 1e-9)
+        return (
+            self.last_state.wander_x_urad * scale,
+            self.last_state.wander_y_urad * scale,
+        )
+
     def apply(self, surface: pygame.Surface) -> pygame.Surface:
+        """Higher-order residual warp (tilt removed into wander offsets)."""
         if self.strength <= 0.0:
             return surface
 
         width, height = surface.get_size()
         if width == 0 or height == 0:
             return surface
+
+        # Residual warp is weaker than legacy model: tip/tilt is handled by wander.
+        residual = 0.35 * self.strength
 
         displacement_x = np.random.randn(self.GRID_HEIGHT, self.GRID_WIDTH).astype(
             np.float32
@@ -64,9 +101,8 @@ class TurbulenceModel:
             displacement_y, (width, height), interpolation=cv2.INTER_CUBIC
         )
 
-        # strength=1.0 -> about +/-1 px RMS warp; scale linearly from there.
-        displacement_x *= self.strength
-        displacement_y *= self.strength
+        displacement_x *= residual
+        displacement_y *= residual
 
         map_x, map_y = np.meshgrid(
             np.arange(width, dtype=np.float32),
@@ -87,7 +123,11 @@ class TurbulenceModel:
 
 
 class VibrationModel:
-    """Platform jitter via a simple AR(1) filtered-noise model."""
+    """Platform tip/tilt jitter via AR(1) filtered noise.
+
+    ``amplitude`` is expressed in **pixels** at the coarse focal plane for UI
+    continuity. Convert with ``VirtualCamera.px_to_urad`` for µrad reporting.
+    """
 
     MAX_AMPLITUDE = 50.0
 
@@ -100,6 +140,9 @@ class VibrationModel:
     def adjust_amplitude(self, delta: float) -> float:
         self.amplitude = float(np.clip(self.amplitude + delta, 0.0, self.MAX_AMPLITUDE))
         return self.amplitude
+
+    def amplitude_urad(self, ifov_urad: float) -> float:
+        return self.amplitude * ifov_urad
 
     def update(self, dt: float) -> tuple[float, float]:
         if self.amplitude <= 0.0:
@@ -116,28 +159,85 @@ class VibrationModel:
 
 
 class SensorNoiseModel:
-    """Gaussian read noise plus mild contrast/brightness loss."""
+    """Read noise with selectable SIH26169 types + optional weather grade.
+
+    Default ``legacy`` preserves the original BeamLock gaussian+contrast mix.
+    """
 
     MAX_NOISE_LEVEL = 1.0
 
-    def __init__(self, noise_level: float = 0.0) -> None:
+    def __init__(
+        self,
+        noise_level: float = 0.0,
+        *,
+        noise_type: str = "legacy",
+        weather: str = "clear",
+    ) -> None:
+        from disturbance.weather import NOISE_LEGACY, WEATHER_PRESETS
+
         self.noise_level = float(np.clip(noise_level, 0.0, self.MAX_NOISE_LEVEL))
+        self.noise_type = noise_type or NOISE_LEGACY
+        self.weather = weather if weather in WEATHER_PRESETS else "clear"
 
     def adjust_noise_level(self, delta: float) -> float:
         self.noise_level = float(np.clip(self.noise_level + delta, 0.0, self.MAX_NOISE_LEVEL))
         return self.noise_level
 
+    def set_noise_type(self, noise_type: str) -> str:
+        self.noise_type = noise_type
+        return self.noise_type
+
+    def set_weather(self, weather: str) -> str:
+        from disturbance.weather import WEATHER_PRESETS
+
+        if weather in WEATHER_PRESETS:
+            self.weather = weather
+        return self.weather
+
     def apply(self, surface: pygame.Surface) -> pygame.Surface:
-        if self.noise_level <= 0.0:
-            return surface
+        from disturbance.weather import (
+            NOISE_GAUSSIAN,
+            NOISE_LEGACY,
+            NOISE_POISSON,
+            NOISE_SALT_PEPPER,
+            WEATHER_PRESETS,
+        )
 
         image = _surface_to_bgr(surface).astype(np.float32)
-        mean = image.mean(axis=(0, 1), keepdims=True)
-        contrast_scale = 1.0 - 0.25 * self.noise_level
-        brightness_shift = -8.0 * self.noise_level
-        image = (image - mean) * contrast_scale + mean + brightness_shift
+        weather = WEATHER_PRESETS.get(self.weather, WEATHER_PRESETS["clear"])
+        if weather.name != "clear":
+            mean = image.mean(axis=(0, 1), keepdims=True)
+            image = (image - mean) * weather.contrast + mean + weather.brightness
 
-        sigma = 3.0 + 30.0 * self.noise_level
-        image += np.random.normal(0.0, sigma, image.shape).astype(np.float32)
+        level = self.noise_level
+        if level > 0.0:
+            if self.noise_type == NOISE_SALT_PEPPER:
+                # ~10% density at noise_level=1.0 (PS remark).
+                amount = 0.10 * level
+                h, w = image.shape[:2]
+                coords = np.random.rand(h, w)
+                salt = coords < amount / 2.0
+                pepper = coords > 1.0 - amount / 2.0
+                image[salt] = 255.0
+                image[pepper] = 0.0
+            elif self.noise_type == NOISE_POISSON:
+                scale = max(0.05, 0.55 - 0.35 * level)
+                sampled = np.random.poisson(np.clip(image * scale, 0.1, None)) / scale
+                image = sampled.astype(np.float32)
+            elif self.noise_type == NOISE_GAUSSIAN:
+                # Max std ~20 grey levels at noise_level=1 (PS table).
+                sigma = 20.0 * level
+                image += np.random.normal(0.0, sigma, image.shape).astype(np.float32)
+            else:
+                # Legacy BeamLock mix.
+                mean = image.mean(axis=(0, 1), keepdims=True)
+                contrast_scale = 1.0 - 0.25 * level
+                brightness_shift = -8.0 * level
+                image = (image - mean) * contrast_scale + mean + brightness_shift
+                sigma = 3.0 + 30.0 * level
+                image += np.random.normal(0.0, sigma, image.shape).astype(np.float32)
+        elif weather.name == "clear":
+            return surface
+
         image = np.clip(image, 0.0, 255.0).astype(np.uint8)
         return _bgr_to_surface(image)

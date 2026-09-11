@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from filterpy.kalman import KalmanFilter
 
@@ -65,6 +67,10 @@ class BeaconTracker:
     def mark_missed_measurement(self) -> None:
         self.frames_since_measurement += 1
 
+    def force_lost(self) -> None:
+        """Force LOST state (e.g. detector switch with no valid re-lock)."""
+        self.frames_since_measurement = LOST_FRAME_THRESHOLD + 1
+
     def reset(self, x: float, y: float) -> None:
         self.kf.x = np.array([x, y, 0.0, 0.0], dtype=float)
         self.kf.P = np.eye(4) * 500.0
@@ -78,6 +84,10 @@ class BeaconTracker:
         position_covariance_trace = float(self.kf.P[0, 0] + self.kf.P[1, 1])
         confidence = 1.0 / (1.0 + position_covariance_trace)
         return float(self.kf.x[0]), float(self.kf.x[1]), confidence
+
+    def position_sigma_px(self) -> float:
+        """1-sigma position uncertainty radius from covariance diagonal (px)."""
+        return float(math.sqrt(max(self.kf.P[0, 0] + self.kf.P[1, 1], 0.0)))
 
     def get_tracking_state(self) -> str:
         if not self.has_measurement:

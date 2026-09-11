@@ -28,12 +28,14 @@ import pygame
 from config import Config
 from control import ReacquisitionController
 from detector.classical_detector import ClassicalDetector
+from detector.hybrid_detector import HybridDetector
 from disturbance import SensorNoiseModel, TurbulenceModel, VibrationModel
 from metrics import LinkReadinessScore, LogSnapshot, RunLogger
+from physics import OpticalLink
 from scene import Scene, Target, VirtualCamera, TRAJECTORY_CIRCULAR
 from tracker import BeaconTracker, TRACKING_LOST
 
-from main import surface_to_bgr
+from main import MAX_ACQ_SLEW_MULTIPLIER, is_plausible_reacq_detection, surface_to_bgr
 
 
 def seed_disturbances(frame_index: int, base_seed: int) -> None:
@@ -78,8 +80,8 @@ def run_benchmark(
     if detector_name == "ai":
         from detector.ai_detector import AIDetector
 
-        active_detector = AIDetector()
-        active_detector_name = "ai"
+        active_detector = HybridDetector(AIDetector(), ClassicalDetector())
+        active_detector_name = "ai+fusion"
     else:
         active_detector = ClassicalDetector()
         active_detector_name = "classical"
@@ -92,6 +94,7 @@ def run_benchmark(
     turb = TurbulenceModel(strength=turbulence)
     vib = VibrationModel(amplitude=vibration)
     noise = SensorNoiseModel(noise_level=sensor_noise)
+    optical_link = OpticalLink()
     link_readiness = LinkReadinessScore(fov_width=camera.fov_width, fov_height=camera.fov_height)
 
     previous_tracking_state = TRACKING_LOST
@@ -119,6 +122,19 @@ def run_benchmark(
                 target.update(dt)
 
             vibration_offset_x, vibration_offset_y = vib.update(dt)
+            atm = turb.update(dt)
+            wander_x_px, wander_y_px = turb.wander_offset_px(camera.ifov_urad)
+            boresight_err_px = math.hypot(camera.x - beacon.x, camera.y - beacon.y)
+            link = optical_link.compute(
+                residual_urad=camera.px_to_urad(boresight_err_px),
+                scintillation=atm.scintillation,
+            )
+            beacon.set_optical_appearance(
+                draw_x=beacon.x + wander_x_px,
+                draw_y=beacon.y + wander_y_px,
+                spot_sigma_px=optical_link.spot_sigma_px(camera.ifov_urad),
+                intensity=atm.scintillation * (0.35 + 0.65 * link.pointing_loss),
+            )
             scene.render(scene_surface)
             camera_view = camera.get_view(scene_surface, vibration_offset_x, vibration_offset_y)
             camera_view = turb.apply(camera_view)
@@ -126,16 +142,35 @@ def run_benchmark(
 
             tracker.predict(dt)
             was_lost = tracker.get_tracking_state() == TRACKING_LOST
-            detection_local = active_detector.detect(surface_to_bgr(camera_view))
+            view_bgr = surface_to_bgr(camera_view)
+            if detector_name == "ai":
+                detection_local = active_detector.detect(
+                    view_bgr,
+                    noise_level=noise.noise_level,
+                    reacquiring=was_lost,
+                )
+            else:
+                detection_local = active_detector.detect(
+                    view_bgr,
+                    adaptive=noise.noise_level > 0.15,
+                )
 
             detection_scene = None
-            if detection_local is not None:
+            accept = detection_local is not None
+            if accept:
                 detection_scene = camera.local_to_scene(
                     detection_local[0],
                     detection_local[1],
                     vibration_offset_x,
                     vibration_offset_y,
                 )
+                if was_lost and not is_plausible_reacq_detection(
+                    detection_scene, camera, reacquisition, lost_search_time
+                ):
+                    accept = False
+                    detection_scene = None
+
+            if accept and detection_scene is not None:
                 if was_lost:
                     tracker.reset(detection_scene[0], detection_scene[1])
                     reacquisition.deactivate()
@@ -161,15 +196,27 @@ def run_benchmark(
                     last_locked_y,
                     last_velocity_x,
                     last_velocity_y,
+                    lost_time=lost_search_time,
                 )
 
             if tracking_state == TRACKING_LOST:
                 lost_search_time += dt
-                if detection_scene is None:
-                    waypoint_x, waypoint_y = reacquisition.get_next_waypoint(
-                        dt, camera.x, camera.y
+                if not reacquisition.active:
+                    reacquisition.activate(
+                        last_locked_x,
+                        last_locked_y,
+                        last_velocity_x,
+                        last_velocity_y,
+                        lost_time=lost_search_time,
                     )
-                    camera.point_towards(waypoint_x, waypoint_y, dt)
+                waypoint_x, waypoint_y = reacquisition.get_next_waypoint(
+                    dt, camera.x, camera.y, lost_time=lost_search_time
+                )
+                dist_wp = math.hypot(camera.x - waypoint_x, camera.y - waypoint_y)
+                slew_mult = min(MAX_ACQ_SLEW_MULTIPLIER, 3.5 + dist_wp / 100.0)
+                camera.point_towards(
+                    waypoint_x, waypoint_y, dt, slew_multiplier=slew_mult
+                )
             elif tracker.should_drive_camera():
                 reacquisition.deactivate()
                 camera.point_towards(estimate_x, estimate_y, dt)
@@ -182,6 +229,10 @@ def run_benchmark(
                 turbulence_strength=turb.strength,
                 vibration_amplitude=vib.amplitude,
                 tracking_state=tracking_state,
+                snr_db=link.snr_db,
+                fade_margin_db=link.fade_margin_db,
+                pointing_loss=link.pointing_loss,
+                scintillation=atm.scintillation,
             )
 
             logger.record_frame(

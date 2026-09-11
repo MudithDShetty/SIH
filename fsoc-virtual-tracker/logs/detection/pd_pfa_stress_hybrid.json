@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "detector": "hybrid",
+      "scenario": "stress",
+      "frames": 200,
+      "tp": 40,
+      "fp": 160,
+      "fn": 0,
+      "tn": 0,
+      "Pd": 1.0,
+      "Pfa": 1.0,
+      "gate_px": 18.0
+    }
+  ]
+}

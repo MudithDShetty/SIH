@@ -1,0 +1,16 @@
+{
+  "simulation_duration_s": 278.38,
+  "avg_fps": 31.85,
+  "avg_pixel_error_px": 439.1717,
+  "max_pixel_error_px": 2207.9753,
+  "lock_retention_pct": 45.19,
+  "avg_acquisition_time_s": 2.034,
+  "acquisition_event_count": 8,
+  "avg_processing_time_ms": 4.529,
+  "max_processing_time_ms": 2877.219,
+  "pct_locked": 45.19,
+  "pct_coasting": 7.91,
+  "pct_lost": 46.9,
+  "reacquisition_count": 9,
+  "active_detector": "ai"
+}

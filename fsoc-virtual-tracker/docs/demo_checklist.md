@@ -2,7 +2,17 @@
 
 Rehearse this mouse-only flow before judging. ~5 minutes.
 
-## Before the demo
+## Demo video (recorded from real stack)
+
+```bash
+python scripts/record_demo_video.py --fps 15 --copy-site
+```
+
+Output: `logs/demo/beamlock_sih_demo.mp4` (also copied to `site/assets/` for Netlify).
+
+Segments: title → Calm → UAV → Stress → forced lock-loss / raster re-acq → AI+fusion UAV → outro.
+
+## Before the live demo
 
 ```bash
 cd fsoc-virtual-tracker

@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FSOC Virtual Tracker — PAT Architecture</title>
+  <style>
+    :root {
+      --ink: #162436;
+      --muted: #5f6e82;
+      --teal: #28698c;
+      --orange: #aa551e;
+      --bg: #f8fafc;
+      --ui: #e6f0fa;
+      --ui-edge: #4670a0;
+      --scene: #e8f5f0;
+      --scene-edge: #288264;
+      --chan: #f5eee6;
+      --chan-edge: #aa6e32;
+      --det: #eee8f8;
+      --det-edge: #6e50a0;
+      --track: #e8f0fa;
+      --track-edge: #3264a0;
+      --out: #f5f5ee;
+      --out-edge: #787846;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      padding: 24px 24px 40px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 1.5rem;
+      text-align: center;
+      font-weight: 700;
+    }
+    .sub {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-bottom: 10px;
+    }
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 22px;
+      margin-bottom: 18px;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 28px;
+      height: 4px;
+      margin-right: 8px;
+      vertical-align: middle;
+      border-radius: 2px;
+    }
+    .legend .fwd::before { background: var(--teal); }
+    .legend .ctl::before { background: var(--orange); }
+
+    .board {
+      position: relative;
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 72px 80px;
+      padding: 44px 80px 80px;
+    }
+
+    .panel {
+      border-radius: 14px;
+      border: 2.5px solid;
+      padding: 28px 14px 16px;
+      min-width: 0;
+      position: relative;
+      z-index: 1;
+    }
+    /* Titles rendered as board overlays (above wires) — hide in-panel copies */
+    .panel h2 { display: none; }
+
+    .panel-tag {
+      position: absolute;
+      z-index: 6;
+      padding: 2px 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      border-radius: 8px;
+      border: 2px solid;
+      line-height: 1.2;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .panel-tag.ui { color: var(--ui-edge); background: var(--ui); border-color: var(--ui-edge); }
+    .panel-tag.scene { color: var(--scene-edge); background: var(--scene); border-color: var(--scene-edge); }
+    .panel-tag.chan { color: var(--chan-edge); background: var(--chan); border-color: var(--chan-edge); }
+    .panel-tag.det { color: var(--det-edge); background: var(--det); border-color: var(--det-edge); }
+    .panel-tag.track { color: var(--track-edge); background: var(--track); border-color: var(--track-edge); }
+    .panel-tag.out { color: var(--out-edge); background: var(--out); border-color: var(--out-edge); }
+
+    .panel.ui { grid-column: 1 / -1; background: var(--ui); border-color: var(--ui-edge); }
+    .panel.scene { background: var(--scene); border-color: var(--scene-edge); }
+    .panel.chan { background: var(--chan); border-color: var(--chan-edge); }
+    .panel.det { background: var(--det); border-color: var(--det-edge); }
+    .panel.track { background: var(--track); border-color: var(--track-edge); }
+    .panel.out { grid-column: 1 / -1; background: var(--out); border-color: var(--out-edge); }
+
+    .node {
+      background: #fff;
+      border: 1.5px solid var(--ink);
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-align: center;
+      font-size: 0.84rem;
+      line-height: 1.25;
+      position: relative;
+      z-index: 2;
+    }
+    .node small {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      margin-top: 2px;
+    }
+
+    .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .stack { display: grid; gap: 36px; }
+    .stack-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+    .ui .node { padding: 12px 16px; }
+    .out .row { gap: 16px; }
+    .out .node { flex: 1; min-width: 180px; }
+
+    svg.wires {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+      z-index: 3;
+    }
+    .wires path {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .wires .fwd { stroke: var(--teal); stroke-width: 2.6; }
+    .wires .ctl { stroke: var(--orange); stroke-width: 2.8; }
+    .wires .dash { stroke-dasharray: 8 6; }
+    .wires text {
+      font-size: 11px;
+      font-weight: 700;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    .wires .tl-fwd { fill: #006e78; }
+    .wires .tl-ctl { fill: var(--orange); }
+
+    .foot {
+      max-width: 1240px;
+      margin: 18px auto 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>FSOC Virtual Tracker — PAT Architecture</h1>
+  <p class="sub">Pointing · Acquisition · Tracking only · no message modem</p>
+  <div class="legend">
+    <span class="fwd">forward path</span>
+    <span class="ctl">camera control</span>
+  </div>
+
+  <div class="board" id="board">
+    <svg class="wires" id="wires" aria-hidden="true"></svg>
+
+    <section class="panel ui" id="p-ui">
+      <h2>1. Operator / UI</h2>
+      <div class="node" id="n-ui">Control Panel
+        <small>sliders · presets · Classical/AI · beacons</small>
+      </div>
+    </section>
+
+    <section class="panel scene" id="p-scene">
+      <h2>2. Virtual World</h2>
+      <div class="stack">
+        <div class="stack-2">
+          <div class="node" id="n-be">Moving Beacon(s)</div>
+          <div class="node" id="n-cl">Stars / Glints</div>
+        </div>
+        <div class="node" id="n-sr">Scene Render</div>
+        <div class="node" id="n-cam">Virtual Camera
+          <small>AZ/EL + FOV</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel chan" id="p-chan">
+      <h2>3. Disturbances + Physics</h2>
+      <div class="stack">
+        <div class="row">
+          <div class="node" id="n-tu">Turbulence
+            <small>Cn² → wander / scintillation</small>
+          </div>
+          <div class="node" id="n-vi">Platform Vibration</div>
+          <div class="node" id="n-no">Sensor Noise</div>
+        </div>
+        <div class="node" id="n-lk">Link Budget
+          <small>SNR / fade / pointing loss</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel det" id="p-det">
+      <h2>4. Detection</h2>
+      <div class="stack">
+        <div class="stack-2">
+          <div class="node" id="n-cls">Classical
+            <small>threshold + centroid</small>
+          </div>
+          <div class="node" id="n-ai">YOLO AI</div>
+        </div>
+        <div class="node" id="n-hy">Hybrid Fusion</div>
+      </div>
+    </section>
+
+    <section class="panel track" id="p-track">
+      <h2>5. Tracking + Control</h2>
+      <div class="stack">
+        <div class="stack-2">
+          <div class="node" id="n-kf">Kalman Tracker
+            <small>LOCKED / COASTING / LOST</small>
+          </div>
+          <div class="node" id="n-re">Spiral Re-acquisition</div>
+        </div>
+        <div class="stack-2">
+          <div class="node" id="n-rd">Link Readiness Score</div>
+          <div class="node" id="n-fi">Fine Pointing Mock
+            <small>4-QD + FSM</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel out" id="p-out">
+      <h2>6. Outputs</h2>
+      <div class="row">
+        <div class="node" id="n-hud">Live HUD µrad</div>
+        <div class="node" id="n-csv">CSV + Run Sheet</div>
+        <div class="node" id="n-rpt">Streamlit Report / PDF</div>
+      </div>
+    </section>
+  </div>
+
+  <p class="foot">
+    Classical + YOLO both feed Hybrid · Link Budget is parallel to turb→vib→noise · Readiness gates Fine handoff
+  </p>
+
+  <script>
+    const board = document.getElementById("board");
+    const svg = document.getElementById("wires");
+
+    const PANEL_TAGS = [
+      ["p-ui", "1. Operator / UI", "ui"],
+      ["p-scene", "2. Virtual World", "scene"],
+      ["p-chan", "3. Disturbances + Physics", "chan"],
+      ["p-det", "4. Detection", "det"],
+      ["p-track", "5. Tracking + Control", "track"],
+      ["p-out", "6. Outputs", "out"],
+    ];
+
+    function box(id) {
+      const el = document.getElementById(id);
+      const b = board.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return {
+        x: r.left - b.left,
+        y: r.top - b.top,
+        w: r.width,
+        h: r.height,
+        r: r.right - b.left,
+        b: r.bottom - b.top,
+        cx: r.left - b.left + r.width / 2,
+        cy: r.top - b.top + r.height / 2,
+      };
+    }
+
+    function port(id, side, frac = 0.5) {
+      const e = box(id);
+      const f = Math.min(0.9, Math.max(0.1, frac));
+      switch (side) {
+        case "t": return { x: e.x + e.w * f, y: e.y };
+        case "b": return { x: e.x + e.w * f, y: e.b };
+        case "l": return { x: e.x, y: e.y + e.h * f };
+        case "r": return { x: e.r, y: e.y + e.h * f };
+        default: return { x: e.cx, y: e.cy };
+      }
+    }
+
+    function flatten(pts) {
+      const out = [pts[0]];
+      for (let i = 1; i < pts.length; i++) {
+        const a = out[out.length - 1];
+        const b = pts[i];
+        if (Math.abs(a.x - b.x) > 0.5 && Math.abs(a.y - b.y) > 0.5) {
+          out.push({ x: a.x, y: b.y });
+        }
+        out.push(b);
+      }
+      return out;
+    }
+
+    function arrowHead(tip, prev, color) {
+      const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+      const sz = 11;
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      p.setAttribute(
+        "points",
+        [
+          [tip.x, tip.y],
+          [tip.x - sz * Math.cos(ang - 0.45), tip.y - sz * Math.sin(ang - 0.45)],
+          [tip.x - sz * Math.cos(ang + 0.45), tip.y - sz * Math.sin(ang + 0.45)],
+        ]
+          .map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`)
+          .join(" ")
+      );
+      p.setAttribute("fill", color);
+      svg.appendChild(p);
+    }
+
+    function wire(pts, cls = "fwd", withArrow = true) {
+      const tip = pts[pts.length - 1];
+      const orth = flatten(pts);
+      const color = cls.includes("ctl") ? "#aa551e" : "#28698c";
+      const drawPts = orth.slice();
+      let arrowFrom = orth.length >= 2 ? orth[orth.length - 2] : tip;
+
+      if (withArrow && orth.length >= 2) {
+        let aIdx = orth.length - 2;
+        let a = orth[aIdx];
+        const b = orth[orth.length - 1];
+        let len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        if (len < 6 && orth.length >= 3) {
+          aIdx = orth.length - 3;
+          a = orth[aIdx];
+          len = Math.hypot(tip.x - a.x, tip.y - a.y) || 1;
+        }
+        const pull = Math.min(9, Math.max(len * 0.35, 4));
+        drawPts[drawPts.length - 1] = {
+          x: tip.x - ((tip.x - a.x) / len) * pull,
+          y: tip.y - ((tip.y - a.y) / len) * pull,
+        };
+        arrowFrom = drawPts[drawPts.length - 1];
+      }
+
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      el.setAttribute(
+        "d",
+        drawPts.map((q, i) => `${i ? "L" : "M"} ${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(" ")
+      );
+      el.setAttribute("class", cls);
+      svg.appendChild(el);
+
+      if (withArrow && orth.length >= 2) {
+        arrowHead(tip, arrowFrom, color);
+      }
+    }
+
+    function hLink(a, b, cls = "fwd", withArrow = true) {
+      const y = (a.y + b.y) / 2;
+      wire([a, { x: a.x, y }, { x: b.x, y }, b], cls, withArrow);
+    }
+
+    /**
+     * Fan-in: jog on a lane above the target, then vertical into the top.
+     * lane keeps sibling horizontals from stacking; clearPx keeps the last
+     * leg long enough that the arrow always points down (never sideways).
+     */
+    function fanIn(fromId, toId, toFrac, lane = 0) {
+      const a = port(fromId, "b");
+      const b = port(toId, "t", toFrac);
+      const clear = 16;
+      const gap = b.y - a.y;
+      if (gap < clear + 8) {
+        wire([a, { x: b.x, y: a.y }, b]);
+        return;
+      }
+      const y = b.y - clear - lane * 14;
+      const midY = Math.max(a.y + 8, y);
+      wire([
+        a,
+        { x: a.x, y: midY },
+        { x: b.x, y: midY },
+        { x: b.x, y: b.y },
+      ]);
+    }
+
+    function label(x, y, text, cls) {
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", x);
+      t.setAttribute("y", y);
+      t.setAttribute("class", cls);
+      t.textContent = text;
+      svg.appendChild(t);
+    }
+
+    function placeTags() {
+      board.querySelectorAll(".panel-tag").forEach((n) => n.remove());
+      for (const [id, text, key] of PANEL_TAGS) {
+        const p = box(id);
+        const tag = document.createElement("div");
+        tag.className = `panel-tag ${key}`;
+        tag.textContent = text;
+        tag.style.left = `${p.x + 14}px`;
+        tag.style.top = `${p.y - 12}px`;
+        board.appendChild(tag);
+      }
+    }
+
+    function draw() {
+      const br = board.getBoundingClientRect();
+      svg.setAttribute("viewBox", `0 0 ${br.width} ${br.height}`);
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      placeTags();
+
+      const scene = box("p-scene");
+      const chan = box("p-chan");
+      const det = box("p-det");
+      const track = box("p-track");
+      const out = box("p-out");
+      const uiN = box("n-ui");
+
+      const gX = (scene.r + chan.x) / 2;
+      const gX1 = gX - 16;
+      const gX2 = gX + 16;
+      const spine = Math.max(10, scene.x - 32);
+      const modeX = spine + 20;
+      const bus = Math.min(br.width - 14, track.r + 40);
+      const yDrop = (uiN.b + scene.y) / 2;
+      const yMode = (scene.b + det.y) / 2 - 16;
+      const yFov = (scene.b + det.y) / 2;
+      const yLink = (scene.b + det.y) / 2 + 24;
+      const yOut = (track.b + out.y) / 2;
+      const yRet = Math.min(out.b + 28, br.height - 14);
+      const yDrive = Math.min(track.y - 22, (chan.b + track.y) / 2);
+
+      // ---- Scene: lane 0 / 1 so horizontals don't fuse; arrows point down ----
+      fanIn("n-be", "n-sr", 0.3, 0);
+      fanIn("n-cl", "n-sr", 0.7, 1);
+      wire([port("n-sr", "b"), port("n-cam", "t")]);
+
+      // ---- UI → beacon ----
+      {
+        const be = port("n-be", "t");
+        wire([{ x: be.x, y: uiN.b }, be]);
+        label(be.x + 8, yDrop, "config", "tl-fwd");
+      }
+
+      // ---- UI → turb/vib/noise: enter from LEFT of node (never through title) ----
+      for (const id of ["n-tu", "n-vi", "n-no"]) {
+        const left = port(id, "l", 0.4);
+        const above = chan.y - 10;
+        const dropX = Math.min(left.x - 18, port(id, "t", 0.15).x);
+        wire([
+          { x: dropX, y: uiN.b },
+          { x: dropX, y: above },
+          { x: dropX, y: left.y },
+          left,
+        ]);
+      }
+
+      // ---- mode: down in gutter first, then left (don't cross UI side wall) ----
+      {
+        const cls = port("n-cls", "t");
+        const ai = port("n-ai", "t");
+        const start = port("n-ui", "b", 0.06);
+        wire([
+          start,
+          { x: start.x, y: yDrop },
+          { x: modeX, y: yDrop },
+          { x: modeX, y: yMode },
+          { x: cls.x, y: yMode },
+          cls,
+        ]);
+        wire([{ x: cls.x, y: yMode }, { x: ai.x, y: yMode }, ai]);
+        label(modeX + 8, yMode - 6, "mode", "tl-fwd");
+      }
+
+      // ---- Camera → channel ----
+      {
+        const cam = port("n-cam", "r", 0.3);
+        const tu = port("n-tu", "l", 0.65);
+        wire([cam, { x: gX1, y: cam.y }, { x: gX1, y: tu.y }, tu]);
+      }
+      hLink(port("n-tu", "r"), port("n-vi", "l"));
+      hLink(port("n-vi", "r"), port("n-no", "l"));
+
+      {
+        const cam = port("n-cam", "r", 0.75);
+        const lk = port("n-lk", "l");
+        wire([cam, { x: gX2, y: cam.y }, { x: gX2, y: lk.y }, lk]);
+      }
+
+      // ---- FOV ----
+      {
+        const no = port("n-no", "b");
+        const cls = port("n-cls", "t", 0.82);
+        wire([no, { x: no.x, y: yFov }, { x: cls.x, y: yFov }, cls]);
+        label(no.x - 40, yFov - 8, "FOV", "tl-fwd");
+      }
+
+      // ---- Detection fan-in ----
+      fanIn("n-cls", "n-hy", 0.3, 0);
+      fanIn("n-ai", "n-hy", 0.7, 1);
+
+      {
+        const hy = port("n-hy", "r");
+        const kf = port("n-kf", "l");
+        wire([hy, { x: gX1, y: hy.y }, { x: gX1, y: kf.y }, kf]);
+      }
+
+      // ---- Tracking ----
+      {
+        const a = port("n-kf", "r");
+        const b = port("n-re", "l");
+        hLink(a, b, "fwd dash");
+        label((a.x + b.x) / 2 - 14, (a.y + b.y) / 2 - 12, "LOST", "tl-fwd");
+      }
+      wire([port("n-kf", "b"), port("n-rd", "t")]);
+
+      {
+        const lk = port("n-lk", "b");
+        const rd = port("n-rd", "l");
+        wire([lk, { x: lk.x, y: yLink }, { x: gX2, y: yLink }, { x: gX2, y: rd.y }, rd]);
+      }
+
+      {
+        const a = port("n-rd", "r");
+        const b = port("n-fi", "l");
+        hLink(a, b);
+        label((a.x + b.x) / 2 - 22, (a.y + b.y) / 2 - 14, "handoff", "tl-fwd");
+      }
+
+      // ---- Outputs: leave Kalman LEFT into gutter (never through Ready) ----
+      {
+        const exit = port("n-kf", "l", 0.88);
+        const hud = port("n-hud", "t");
+        wire([
+          exit,
+          { x: gX1, y: exit.y },
+          { x: gX1, y: yOut },
+          { x: hud.x, y: yOut },
+          hud,
+        ]);
+      }
+      {
+        const rd = port("n-rd", "b");
+        const csv = port("n-csv", "t");
+        wire([rd, { x: rd.x, y: yOut }, { x: csv.x, y: yOut }, csv]);
+      }
+      hLink(port("n-csv", "r"), port("n-rpt", "l"));
+
+      // ---- Orange control ----
+      wire([{ x: bus, y: yDrive }, { x: bus, y: port("n-fi", "r").y }], "ctl", false);
+      label(bus - 8, yDrive - 14, "control bus", "tl-ctl");
+
+      {
+        const kf = port("n-kf", "t", 0.82);
+        wire([kf, { x: kf.x, y: yDrive }, { x: bus, y: yDrive }], "ctl");
+        label(bus - 48, yDrive + 16, "drive", "tl-ctl");
+      }
+      wire([port("n-re", "r"), { x: bus, y: port("n-re", "r").y }], "ctl dash");
+      wire([port("n-fi", "r"), { x: bus, y: port("n-fi", "r").y }], "ctl");
+
+      {
+        const cam = port("n-cam", "l");
+        wire(
+          [
+            { x: bus, y: port("n-fi", "r").y },
+            { x: bus, y: yRet },
+            { x: spine, y: yRet },
+            { x: spine, y: cam.y },
+            cam,
+          ],
+          "ctl"
+        );
+        label(br.width / 2 - 110, yRet + 16, "aim → camera (drive · re-acq · fine)", "tl-ctl");
+      }
+    }
+
+    new ResizeObserver(() => draw()).observe(board);
+    window.addEventListener("load", draw);
+    if (document.fonts?.ready) document.fonts.ready.then(draw);
+  </script>
+</body>
+</html>

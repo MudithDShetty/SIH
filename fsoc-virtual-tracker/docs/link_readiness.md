@@ -1,124 +1,108 @@
 # Link Readiness Score
 
-Decision-support heuristic for **coarse-to-fine FSOC handoff**. Answers whether coarse beacon tracking is good enough to attempt fine pointing / link closure.
+Decision-support score for **coarse-to-fine FSOC handoff**. Answers whether coarse beacon tracking is good enough to attempt fine pointing / link closure.
 
-**This is not** a BER model, outage probability, or certified link budget.
+**This is not** a certified BER, outage probability, or flight-qualified link budget. v2 is physics-informed (SNR / fade margin) when the optical link model is active.
 
-Implementation: `metrics/link_readiness.py`
-
----
-
-## Inputs (per frame)
-
-| Input | Source | Range |
-|---|---|---|
-| `pixel_error` | `hypot(kalman_x - beacon_x, kalman_y - beacon_y)` in scene px | 0 → ∞ |
-| `turbulence_strength` | `TurbulenceModel.strength` | 0 – 10 |
-| `vibration_amplitude` | `VibrationModel.amplitude` | 0 – 50 |
-| `tracking_state` | Kalman tracker | `LOCKED` / `COASTING` / `LOST` |
-
-**Not in v1 formula:** sensor noise (logged to CSV only; affects detection indirectly via pixel error).
-
-**Error reference:** `min(fov_width, fov_height)` → default **300 px** (400×300 camera FOV).
+Implementation: `metrics/link_readiness.py` · channel: `physics/atmosphere.py` · budget: `physics/link_budget.py`
 
 ---
 
-## Sub-scores (each ∈ [0, 1])
+## Physics path (default in `main.py`)
 
-### 1. Pixel error (weight 0.40)
+Each frame:
 
-```
-normalized_error = clamp(pixel_error / error_reference, 0, 1)
-pixel_error_subscore = 1 - normalized_error
-```
-
-Tracking error is the primary observable for coarse pointing. Normalizing by FOV scale makes the score portable across camera configs.
-
-### 2. Turbulence (weight 0.20)
-
-```
-turbulence_subscore = 1 - clamp(turbulence_strength / 10.0, 0, 1)
-```
-
-Higher turbulence degrades image quality and detection stability before fine-pointing handoff.
-
-### 3. Vibration (weight 0.20)
-
-```
-vibration_subscore = 1 - clamp(vibration_amplitude / 50.0, 0, 1)
-```
-
-Platform jitter moves the FOV independently of tracker belief; penalized even when nominally LOCKED.
-
-### 4. Tracking state (weight 0.20)
-
-```
-LOCKED    → 1.0
-COASTING  → 0.35
-LOST      → 0.0  (see hard rule)
-```
-
-COASTING means missed detections; the filter is extrapolating. 0.35 is partial credit, not a physical constant.
-
----
-
-## Final score
-
-**Hard rule:** `tracking_state == LOST` → **score = 0.0** (no handoff when coarse lock is lost).
-
-**Otherwise:**
+1. UI **Cn2 proxy** (0–10) → log-uniform Cn² → Fried `r₀`, Rytov variance
+2. Beam wander (µrad) + scintillation irradiance `I`
+3. Boresight residual → pointing loss on a Gaussian acquisition beam
+4. `OpticalLink` → `P_rx`, SNR (dB), fade margin vs 10 dB handoff floor
+5. Readiness blend:
 
 ```
 score = clamp(
-    0.40 × pixel_error_subscore
-  + 0.20 × turbulence_subscore
-  + 0.20 × vibration_subscore
-  + 0.20 × tracking_state_subscore,
+    0.45 × snr_subscore          # 10 dB → 0, 25 dB → 1
+  + 0.25 × pointing_loss
+  + 0.15 × min(1, scintillation)
+  + 0.15 × lock_state_subscore,
   0, 1
 )
 ```
 
+**Hard rule:** `LOST` → score = 0.
+
+HUD shows SNR, fade margin, Cn², `r₀`, and `I`.
+
 ---
 
-## UI thresholds (`main.py`)
+## Fine stage handoff (4-QD mock)
 
-| Score | Gauge color | Demo label |
+When readiness ≥ **0.70**, tracking is **LOCKED**, and boresight residual ≤ **600 µrad**, control hands off to `FinePointingController` (`control/fine_pointing.py`):
+
+- Mock **4-quadrant** signals from spot vs FOV center
+- High-bandwidth FSM tip/tilt nulling (~4000 µrad/s)
+- Exit if readiness &lt; **0.55**, COASTING/LOST, or residual &gt; 900 µrad
+
+HUD shows `PAT: FINE 4QD` with residual and quad `(qx, qy)`. Camera view draws the FOV-center cross and quad bars.
+
+Still a demo plant, not a calibrated flight FSM / 4-QD model.
+
+---
+
+## Fallback heuristic (no SNR supplied)
+
+| Input | Range |
+|---|---|
+| `pixel_error` | scene px |
+| `turbulence_strength` | 0 – 10 (Cn² proxy) |
+| `vibration_amplitude` | 0 – 50 px tip/tilt |
+| `tracking_state` | LOCKED / COASTING / LOST |
+
+```
+score = 0.40×err + 0.20×turb + 0.20×vib + 0.20×lock
+```
+
+---
+
+## Angular camera
+
+`VirtualCamera` exposes true IFOV:
+
+```
+IFOV_urad = FOV_horizontal_urad / fov_width
+# default: 2500 µrad / 400 px = 6.25 µrad/px (ESA IZN-1 class FOV scale)
+```
+
+Pixel error → µrad via IFOV. Slew rate is shown as px/s and µrad/s.
+
+---
+
+## UI thresholds
+
+| Score | Color | Label |
 |---|---|---|
 | ≥ 0.7 | Green | Ready |
 | 0.3 – 0.7 | Yellow | Marginal |
 | < 0.3 | Red | Not ready |
 
-Demo conventions only — not derived from optical theory.
-
----
-
-## Worked example
-
-No disturbances, LOCKED, 36 px error, FOV reference 300 px:
-
-- `pixel_error_subscore = 1 - 36/300 = 0.88`
-- Other subscores = 1.0
-- `score = 0.40×0.88 + 0.20 + 0.20 + 0.20 = 0.952`
+Demo conventions — not optical theory constants.
 
 ---
 
 ## One-liner for judges
 
-> Weighted 0–1 coarse-tracking handoff readiness: 40% normalized pixel error, 40% disturbance severity (turbulence + vibration), 20% lock-state confidence, hard zero on LOST — a decision-support signal, not a physical BER model.
+> Physics-informed coarse-to-fine handoff score from Cn²-driven scintillation / beam wander, Gaussian-beam pointing loss, and SNR fade margin — a decision-support signal, not a certified BER model.
 
 ---
 
 ## Evidence
 
-Generate paired classical vs AI logs with matched disturbances:
-
 ```bash
 python scripts/run_comparison.py --duration 60
 ```
 
-Compare in `streamlit run report.py` using the `classical_turb4_vib8_noise0.2.csv` and `ai_turb4_vib8_noise0.2.csv` files.
+Compare in `streamlit run report.py`.
 
-### Scenario matrix after hard curriculum (turb 0–8.5, vib 0–25, 3000 frames, 50-epoch GPU)
+### Scenario matrix after hard curriculum (pre-physics-upgrade baseline)
 
 | Scenario | Classical err | AI err | Classical lock | AI lock | Reacq C/AI | Winner |
 |---|---|---|---|---|---|---|
@@ -126,5 +110,4 @@ Compare in `streamlit run report.py` using the `classical_turb4_vib8_noise0.2.cs
 | UAV | 35.6 px | **35.6 px** | 97.7% | **100%** | 1 / 1 | AI (lock) |
 | Stress | **35.1 px** | 36.1 px | 95.5% | 95.5% | 2 / **1** | Mixed |
 
-**Honest takeaway:** Extending training into Stress-range disturbances did **not** flip mean pixel error under Stress. That ~35 px floor is mostly **camera slew lag** on circular motion (present even in Calm), so mean error is a weak detector discriminator. AI's measurable value is **lock retention** (UAV) and **fewer re-acquisitions** (Stress: 1 vs 2). Lead the report with those metrics, not mean error alone.
-
+**Honest takeaway:** Mean pixel error is largely slew-lag limited. AI value is lock retention / fewer re-acquisitions. Re-run the matrix after this physics upgrade before citing new numbers.

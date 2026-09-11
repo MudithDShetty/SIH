@@ -4,6 +4,31 @@ __pycache__/
 runs/
 .pytest_cache/
 *.egg-info/
+_debug_main.py
+dist/
+build/
+*.spec
+
+# Base Ultralytics downloads (trained beacon weights live under weights/)
+/yolo*.pt
+yolov8n.pt
+yolo26n.pt
+
+# LaTeX build junk (keep *.tex and submission PDFs)
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc
+docs/*_build.*
+docs/sih_technical_report_v11.*
+docs/sih_technical_report_build.*
+
+# Scratch / debug logs
+logs/_eval*
+logs/_ps*
+logs/_verify/
+logs/main_background.log
+logs/demo/*_h264.mp4
 
 # Regenerate with scripts/generate_training_data.py (~125 MB)
 data/images/

@@ -51,6 +51,12 @@ def test_logger_round_trip() -> None:
                     cumulative_lost_seconds=0.0,
                     reacquisition_count=0,
                     active_detector="classical",
+                    angular_error_urad=25.0,
+                    boresight_urad=20.0,
+                    az_urad=10.0,
+                    el_urad=-5.0,
+                    pat_stage="COARSE",
+                    handoff_count=0,
                 )
             )
         logger.close()

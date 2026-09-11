@@ -1,0 +1,133 @@
+{
+  "scenario": "uav",
+  "trials": 15,
+  "acquired": 15,
+  "timeouts": 0,
+  "estol_bound_s": 60.0,
+  "estol_pass_count": 15,
+  "median_s": 0.817,
+  "p95_s": 0.85,
+  "mean_s": 0.8156,
+  "results": [
+    {
+      "seed": 42,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.85,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 59,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.8,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 76,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.817,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 93,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.85,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 110,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.833,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 127,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.783,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 144,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.817,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 161,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.817,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 178,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.767,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 195,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.8,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 212,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.783,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 229,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.833,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 246,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.8,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 263,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.867,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 280,
+      "scenario": "uav",
+      "acquired": true,
+      "time_to_lock_s": 0.817,
+      "timed_out": false,
+      "estol_pass": true
+    }
+  ]
+}

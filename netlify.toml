@@ -1,0 +1,24 @@
+# Deploy BeamLock judge site from monorepo root.
+# Prefer setting Netlify "Base directory" to fsoc-virtual-tracker instead.
+# If base is the SIH repo root, this file publishes the static site.
+
+[build]
+  publish = "fsoc-virtual-tracker/site"
+  command = "echo Netlify static publish: fsoc-virtual-tracker/site"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[redirects]]
+  from = "/try"
+  to = "/demo.html"
+  status = 302
+
+[[redirects]]
+  from = "/arch"
+  to = "/architecture.html"
+  status = 302

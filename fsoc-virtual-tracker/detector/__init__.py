@@ -1,8 +1,9 @@
 """Detector package with lazy AI imports so classical mode avoids YOLO startup."""
 
 from detector.classical_detector import ClassicalDetector
+from detector.hybrid_detector import HybridDetector
 
-__all__ = ["AIDetector", "ClassicalDetector"]
+__all__ = ["AIDetector", "ClassicalDetector", "HybridDetector"]
 
 
 def __getattr__(name: str):

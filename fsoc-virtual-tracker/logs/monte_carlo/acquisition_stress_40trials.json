@@ -1,0 +1,333 @@
+{
+  "scenario": "stress",
+  "trials": 40,
+  "acquired": 40,
+  "timeouts": 0,
+  "estol_bound_s": 60.0,
+  "estol_pass_count": 40,
+  "median_s": 0.967,
+  "p95_s": 1.0,
+  "mean_s": 0.945,
+  "results": [
+    {
+      "seed": 42,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.983,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 59,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.983,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 76,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.95,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 93,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 1.017,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 110,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.917,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 127,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.917,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 144,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.917,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 161,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 1.0,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 178,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.933,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 195,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 212,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 229,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.933,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 246,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.933,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 263,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 280,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.95,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 297,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.933,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 314,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 331,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 348,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.95,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 365,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.917,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 382,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 399,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.733,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 416,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.983,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 433,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.983,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 450,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.9,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 467,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.883,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 484,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 501,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 518,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.933,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 535,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.933,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 552,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.983,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 569,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.883,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 586,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 1.0,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 603,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 620,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.917,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 637,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.983,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 654,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.883,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 671,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 688,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 705,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.933,
+      "timed_out": false,
+      "estol_pass": true
+    }
+  ]
+}

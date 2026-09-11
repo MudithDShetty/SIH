@@ -32,35 +32,90 @@ We do **not** claim flight qualification or BER certification.
 
 ## 2. System architecture
 
+**Architecture diagram:** open [`docs/architecture.html`](architecture.html) in a browser (HTML/SVG, preferred over PNG).
+
+Full Mermaid / stage notes: [`docs/architecture.md`](architecture.md).
+
+```mermaid
+flowchart TB
+  subgraph INPUT["Operator / UI"]
+    UI["Control Panel<br/>sliders · presets · Classical/AI · beacons"]
+  end
+
+  subgraph SCENE["Virtual World"]
+    BEACON["Moving Beacon(s)"]
+    CLUTTER["Stars / Glints"]
+    CAM["Virtual Camera<br/>AZ/EL + FOV"]
+    BEACON --> SCENE_RENDER["Scene Render"]
+    CLUTTER --> SCENE_RENDER
+    SCENE_RENDER --> CAM
+  end
+
+  subgraph CHANNEL["Disturbances + Physics"]
+    TURB["Turbulence<br/>Cn² → wander / scintillation"]
+    VIB["Platform Vibration"]
+    NOISE["Sensor Noise"]
+    LINK["Link Budget<br/>SNR / fade / pointing loss"]
+  end
+
+  subgraph DETECT["Detection"]
+    CLASS["Classical<br/>threshold + centroid"]
+    AI["YOLO AI"]
+    HYB["Hybrid Fusion"]
+    CLASS --> HYB
+    AI --> HYB
+  end
+
+  subgraph TRACK["Tracking + Control"]
+    KF["Kalman Tracker<br/>LOCKED / COASTING / LOST"]
+    REACQ["Spiral Re-acquisition"]
+    FINE["Fine Pointing Mock<br/>4-QD + FSM"]
+    READY["Link Readiness Score"]
+  end
+
+  subgraph OUT["Outputs"]
+    HUD["Live HUD µrad"]
+    CSV["CSV + Run Sheet"]
+    RPT["Streamlit Report / PDF"]
+  end
+
+  UI --> BEACON
+  UI --> TURB
+  UI --> VIB
+  UI --> NOISE
+  UI --> DETECT
+
+  CAM --> TURB --> VIB --> NOISE --> DETECT
+  CAM --> LINK
+  DETECT --> KF
+  KF -->|drive| CAM
+  KF -->|LOST| REACQ --> CAM
+  KF --> READY
+  LINK --> READY
+  READY -->|handoff| FINE --> CAM
+
+  KF --> HUD
+  KF --> CSV --> RPT
+  READY --> HUD
 ```
-┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
-│ Virtual     │───▶│ Disturbances │───▶│  Detector   │───▶│ Kalman       │
-│ Scene+Camera│    │ turb/vib/noise│   │ Class. / AI │    │ Tracker      │
-└─────────────┘    └──────────────┘    └─────────────┘    └──────┬───────┘
-       ▲                                                          │
-       │              ┌──────────────┐    ┌─────────────┐         │
-       └──────────────│ Camera slew  │◀───│ Re-acq spiral│◀── LOST
-                      │ (rate-limited)│    │  search      │
-                      └──────────────┘    └─────────────┘
-                              │
-                      ┌───────▼────────┐
-                      │ Link Readiness │──▶ coarse-to-fine handoff signal
-                      │ Score (0–1)    │
-                      └────────────────┘
-```
+
+**Loop:** UI configures the scene → camera sees disturbed beacon → detect → Kalman track → slew / re-acquire / fine handoff → HUD + logs. No message modem.
 
 ### Module map
 
 | Module | File | Role |
 |---|---|---|
 | Scene | `scene/scene.py` | Beacon motion (linear/circular/random walk) |
-| Camera | `scene/camera.py` | FOV crop, slew-rate limit, angular error |
-| Disturbances | `disturbance/disturbance.py` | Turbulence warp, vibration AR(1), sensor noise |
+| Camera | `scene/camera.py` | FOV crop, slew limit, true IFOV ↔ µrad |
+| Disturbances | `disturbance/disturbance.py` | Cn²-driven warp residual, vibration AR(1), sensor noise |
+| Atmosphere | `physics/atmosphere.py` | Cn² → r₀, Rytov, beam wander, scintillation |
+| Link budget | `physics/link_budget.py` | Gaussian beam P_rx / SNR / fade margin |
 | Classical detector | `detector/classical_detector.py` | Threshold + contour centroid |
 | AI detector | `detector/ai_detector.py` | YOLOv8n bounding-box centroid |
 | Tracker | `tracker/kalman_tracker.py` | Constant-velocity Kalman, LOCKED/COASTING/LOST |
 | Re-acquisition | `control/reacquisition.py` | Archimedean spiral search (literature-standard) |
-| Link readiness | `metrics/link_readiness.py` | Weighted handoff heuristic |
+| Fine pointing | `control/fine_pointing.py` | Readiness-gated 4-QD / FSM mock |
+| Link readiness | `metrics/link_readiness.py` | SNR-informed handoff score |
 | Logger | `metrics/logger.py` + `session_metrics.py` | CSV + JSON SIH metrics |
 | UI | `ui/controls.py` | Sliders, presets, detector/trajectory buttons |
 | Report | `report.py` | Streamlit analysis and comparison |
@@ -115,14 +170,14 @@ Training data regenerated to turb **0–8.5**, vib **0–25**, noise **0–0.75*
 
 ## 5. Link Readiness Score (novelty)
 
-Weighted 0–1 heuristic for **coarse-to-fine handoff** decision support:
+Physics-informed 0–1 score for **coarse-to-fine handoff** (default path):
 
 ```
-score = 0.40×(1 - error/ref) + 0.20×(1 - turb/10) + 0.20×(1 - vib/50) + 0.20×state_factor
+score = 0.45×snr_sub + 0.25×pointing_loss + 0.15×scintillation + 0.15×lock
 LOST → score = 0
 ```
 
-See `docs/link_readiness.md` for full derivation. **Not a BER model.**
+SNR comes from `OpticalLink` (Tx power, divergence, range, pointing loss, scintillation). See `docs/link_readiness.md`. **Not a BER model.**
 
 ---
 
@@ -149,22 +204,19 @@ Session summary JSON example fields:
 
 ## 8. Limitations
 
-- Turbulence is image-domain warp, not wave-optics / Fried parameter propagation  
-- Single beacon in runtime (multi-target architecture exists)  
-- 2D camera translation, not full gimbal azimuth/elevation  
+- Atmospheric channel is **Andrews-style statistics** (Cn² → r₀, Rytov, wander, gamma-gamma scintillation), not a split-step / phase-screen propagator  
+- Link budget is a directed Gaussian-beam SNR for handoff scoring — **not** a certified BER / outage model  
+- Scene is a 2D sandbox with AZ/EL plant + IFOV mapping; not a full mechanical gimbal CAD model  
 - AI trained on synthetic data only  
-- No physical link budget or BER  
+- Fine pointing (4-QD / FSM) includes mild channel noise + command latency, but is still a readiness-gated mock, not a calibrated flight plant  
 
 ---
 
 ## 9. Future improvements
 
-1. Fried-parameter-linked turbulence (r₀ → pixel wander σ)  
-2. Pan-tilt angle state with µrad telemetry  
-3. Fine-pointing sub-stage mock (4-QD when readiness &gt; 0.7)  
-4. Multi-beacon scenes  
-5. PyInstaller standalone executable  
-6. Extended YOLO training on GPU  
+1. Acquisition pattern A/B (spiral vs raster) under matched FOU + jitter  
+2. Re-benchmark classical vs AI after clutter-heavy retrain  
+3. Longer Monte Carlo campaigns for paper-quality confidence intervals  
 
 ---
 
@@ -175,7 +227,9 @@ Session summary JSON example fields:
 3. ESA IZN-1 Direct-to-Earth optical communications (EPIC 2024)  
 4. MDPI Photonics 11(6):540 — Optimal spiral scanning for FSO acquisition  
 5. Applied Optics 2024 — Deep vision YOLO FSO-PAT system  
-6. ISRO Opto-Quantum Communication program overview (TEC)
+6. Larry C. Andrews & Ronald L. Phillips — *Laser Beam Propagation through Random Media* (scintillation, r₀, beam wander)
+7. IISc/QOSMIC — Probabilistic optical LEO link budget (arXiv:2507.20908)
+8. ISRO Opto-Quantum Communication program overview (TEC)
 
 ---
 

@@ -4,22 +4,28 @@
 
 | SIH requirement | Status | Evidence |
 |---|---|---|
-| Configurable virtual environment | **Partial** | Live sliders (`ui/controls.py`); scene presets hardcoded in `main.py` |
-| One or more moving targets | **Partial** | `Scene` supports list; app runs one beacon |
-| Movable virtual camera | **Done** | `VirtualCamera` with slew-rate-limited pointing |
+| Configurable virtual environment | **Done** | Sliders + Calm/UAV/Stress presets (`ui/scenarios.py`) |
+| One or more moving targets | **Done** | Beacons 1/2 UI + `B` key; second beacon is a cooler distractor |
+| Movable virtual camera | **Done** | `VirtualCamera` AZ/EL plant with rate/accel limits |
 | Automatic beacon detection | **Done** | Classical + YOLO (`detector/`) |
 | Continuous CV tracking | **Done** | Kalman filter (`tracker/kalman_tracker.py`) |
-| Camera control loop | **Done** | Detect → Kalman → `point_towards()` |
-| Disturbances (turbulence, vibration, noise) | **Done** | `disturbance/disturbance.py` |
-| Real-time performance display | **Done** | HUD + link readiness gauge (`main.py`) |
-| AI-assisted tracking | **Done** | `AIDetector` (YOLOv8n) + training pipeline |
-| Performance log / report | **Done** | CSV + JSON summary + Streamlit (`report.py`) |
-| Classical vs AI comparison | **Done** | `scripts/run_comparison.py` + compare mode |
-| Coarse-to-fine handoff signal | **Done** | Link Readiness Score (`docs/link_readiness.md`) |
-| Re-acquisition (spiral search) | **Done** | `control/reacquisition.py` — aligns with literature spiral PAT |
-| Standalone executable | **Partial** | `python main.py`; no `.exe` yet |
-| Technical report / user manual | **Missing** | You must write these (10–15 pages + install guide) |
-| 3–5 min demo video | **Missing** | Record using `docs/demo_checklist.md` |
+| Camera control loop | **Done** | Detect → Kalman → AZ/EL slew |
+| Disturbances (turbulence, vibration, noise) | **Done** | Cn²→r₀ channel + AR(1) tip/tilt |
+| Real-time performance display | **Done** | HUD (µrad primary) + link readiness gauge |
+| AI-assisted tracking | **Done** | `AIDetector` / hybrid + training pipeline |
+| Performance log / report | **Done** | CSV + run sheet JSON + Streamlit handoff timeline |
+| Classical vs AI comparison | **Done** | `run_comparison.py` + `run_ablation.py` |
+| Coarse-to-fine handoff signal | **Done** | Gated `FinePointingController` (stable frames) |
+| Re-acquisition (spiral/raster search) | **Done** | Covariance-scaled search (`control/reacquisition.py`) |
+| Acquisition Monte Carlo | **Done** | `scripts/monte_carlo_acquisition.py` vs ESTOL &lt;60 s |
+| Clutter Pd/Pfa | **Done** | `scripts/evaluate_detection.py` |
+| Standalone executable | **Done (script)** | `python scripts/build_exe.py` → PyInstaller one-folder |
+| Technical report / user manual | **Draft** | `docs/technical_report.md`, `docs/user_manual.md`, `docs/beamlock_technical_deep_dive.pdf` |
+| 3–5 min demo video | **Partial** | `logs/demo/beamlock_sih_demo.mp4` (~53 s); lengthen for optional deliverable |
+| PS table dual-mode | **Done** | `python main.py --profile ps` (2000², 640×480, 4° FOV) |
+| Figure-of-8 trajectory | **Done** | `4` / Fig-8 button |
+| Named noise + weather | **Done** | `N` / `M` keys |
+| Benchmark-2 MP4 PTZ bypass | **Done** | `scripts/benchmark_video.py` |
 
 **Core PAT loop: complete.** Gaps are packaging, documentation deliverables, and scientific polish.
 
@@ -31,13 +37,13 @@ Reference values from public space-optical standards and programs. Simulation us
 
 | Parameter | Literature / standard reference | Our simulation |
 |---|---|---|
-| PAT stages | Coarse (gimbal/camera) + fine (FSM/4-QD) — SDA OCT §2.1, ISRO OQC program | **Coarse stage implemented**; Link Readiness = handoff to fine (not simulated) |
-| Acquisition FOV | ~2.5 mrad acquisition FOV (ESA IZN-1 ground station) | 400×300 px window ≈ configurable coarse FOV |
+| PAT stages | Coarse (gimbal/camera) + fine (FSM/4-QD) — SDA OCT §2.1, ISRO OQC program | **Coarse + fine mock** (`FinePointingController` handoff at readiness ≥ 0.7) |
+| Acquisition FOV | ~2.5 mrad acquisition FOV (ESA IZN-1 ground station) | 400×300 px @ 2500 µrad → **IFOV 6.25 µrad/px** |
 | Acquisition time target | &lt;60 s warm start (ESA ESTOL REQ-PHY-030); goal &lt;30 s | Spiral re-acquisition; log `avg_acquisition_time_s` in summary JSON |
-| Closed-loop tracking error | &lt;2 µrad RMS fine stage (ESA IZN-1) | Pixel error + **angular error estimate** in HUD |
-| Beam / beacon | 976 nm beacon, 0.3° divergence (ESA IZN-1 uplink beacon) | Warm yellow point source (~4 px) |
-| Atmospheric effect | Beam wander, scintillation (Fried parameter r₀) | Image-domain turbulence warp (qualitative; not wave-optics) |
-| Platform jitter | Gimbal / UAV vibration | AR(1) vibration model on camera position |
+| Closed-loop tracking error | &lt;2 µrad RMS fine stage (ESA IZN-1) | Pixel error + **true-IFOV angular error** in HUD |
+| Beam / beacon | 976 nm beacon, 0.3° divergence (ESA IZN-1 uplink beacon) | Gaussian spot + link budget (`physics/link_budget.py`) |
+| Atmospheric effect | Beam wander, scintillation (Fried parameter r₀) | Cn² proxy → r₀ / Rytov / wander / scintillation (`physics/atmosphere.py`) |
+| Platform jitter | Gimbal / UAV vibration | AR(1) tip/tilt on FOV (px ↔ µrad via IFOV) |
 | Detector | Centroid / deep learning (Photonics 2024 YOLO-PAT) | Classical threshold + YOLOv8n |
 | Search pattern | Spiral scan (MDPI Photonics 11(6):540) | `ReacquisitionController` Archimedean spiral |
 | Lock retention | PAT state machine (CCSDS / SDA OCT) | LOCKED / COASTING / LOST + `%` in logs |
@@ -66,7 +72,7 @@ Judges do **not** expect a flight-ready OCT. They expect:
 1. **Physics-aware vocabulary** — mrad, PAT, coarse/fine, turbulence, acquisition cone  
 2. **Traceable parameters** — table linked to SDA/ESA/ISRO public docs  
 3. **Reproducible benchmarks** — matched-seed classical vs AI (`run_comparison.py`)  
-4. **Honest limits** — synthetic training data, qualitative turbulence, no real BER  
+4. **Honest limits** — synthetic training data, statistical (not wave-optics) channel, SNR handoff score ≠ BER  
 5. **Operational logging** — duration, FPS, max error, acquisition time, lock retention, processing time  
 
 ---
@@ -79,24 +85,27 @@ Judges do **not** expect a flight-ready OCT. They expect:
 3. Ship **`weights/beacon_yolov8n.pt`** in repo or clear train instructions
 4. Record **3–5 min demo video**
 
-### Phase B — Differentiators (high impact)
-1. **Retrain YOLO** — 50+ epochs, harder disturbances in `generate_training_data.py`
-2. **Angular error (µrad)** in HUD and logs — map pixel error via coarse FOV
-3. **Preset scenarios** — “UAV mild”, “LEO turbulence”, “Acquisition stress” buttons
-4. **PDF export** from Streamlit report for judges
-5. **PyInstaller `.exe`** for “standalone application” deliverable
+### Phase B — Differentiators
+1. ~~Cn² → r₀ / wander / scintillation + Gaussian link SNR~~ **Done** (`physics/`)
+2. ~~Fine-pointing mock after readiness &gt; 0.7~~ **Done** (`control/fine_pointing.py` + stable-frame gate)
+3. ~~AZ/EL plant + µrad-primary logging~~ **Done** (`scene/camera.py`, CSV run sheet)
+4. ~~Acquisition Monte Carlo vs ESTOL &lt;60 s~~ **Done** (`scripts/monte_carlo_acquisition.py`)
+5. ~~Clutter Pd/Pfa~~ **Done** (`scripts/evaluate_detection.py`)
+6. ~~Ablation summary~~ **Done** (`scripts/run_ablation.py`)
+7. ~~**PDF export** from Streamlit report for judges~~ **Done** (`report.py` download)
+8. ~~**PyInstaller `.exe`** for standalone deliverable~~ **Done** (`scripts/build_exe.py`)
 
-### Phase C — Scientist-grade (if time)
-1. Fried-parameter-linked turbulence strength (r₀ → pixel wander σ)
-2. Pan-tilt angles (azimuth/elevation) instead of pure x/y
-3. Multi-beacon / multi-target scene
-4. Fine-pointing sub-stage (4-QD mock) triggered when Link Readiness &gt; 0.7
-
+### Phase C — Next physics / PAT upgrades
+1. ~~Multi-beacon / multi-target scene~~ **Done** (Beacons 1/2 + association)
+2. ~~Optional: noise on 4-QD channels / FSM latency~~ **Done** (`FinePointingController`)
+3. Record demo video + finalize PDF report
 ---
 
 ## Latest benchmark (cite in report)
 
-Settings: turbulence=4, vibration=8, sensor noise=0.2, 60 s, seed=42.
+Pre-physics-upgrade matrix (hard curriculum, 50-epoch GPU). Re-run before claiming new physics-era numbers.
+
+Settings: turbulence=4, vibration=8, sensor noise=0.2, seed=42.
 
 | Metric | Classical | AI |
 |---|---|---|
@@ -104,4 +113,4 @@ Settings: turbulence=4, vibration=8, sensor noise=0.2, 60 s, seed=42.
 | Lock retention | 98.3% | 100% |
 | Re-acquisitions | 2 | 1 |
 
-**Narrative:** AI improves lock stability; classical slightly better mean error under current 5-epoch weights. Retraining is the path to dominate both metrics.
+**Narrative:** AI improves lock stability; mean error is largely slew-lag limited. Lead with lock / re-acq, not mean error alone.

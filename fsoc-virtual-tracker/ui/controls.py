@@ -8,10 +8,15 @@ from typing import Callable
 import pygame
 
 from disturbance.disturbance import SensorNoiseModel, TurbulenceModel, VibrationModel
-from scene.scene import TRAJECTORY_CIRCULAR, TRAJECTORY_LINEAR, TRAJECTORY_RANDOM_WALK
+from scene.scene import (
+    TRAJECTORY_CIRCULAR,
+    TRAJECTORY_FIGURE8,
+    TRAJECTORY_LINEAR,
+    TRAJECTORY_RANDOM_WALK,
+)
 from ui.scenarios import PRESET_ORDER, PRESETS, ScenarioPreset
 
-CONTROL_PANEL_HEIGHT = 168
+CONTROL_PANEL_HEIGHT = 212
 PANEL_BG = (18, 22, 34)
 PANEL_BORDER = (70, 80, 105)
 SLIDER_TRACK = (45, 52, 68)
@@ -168,7 +173,7 @@ class ControlPanel:
         gap = 10
 
         self.turbulence_slider = Slider(
-            "Turbulence",
+            "Cn2 proxy",
             pygame.Rect(left, top_y, slider_width, slider_height),
             0.0,
             TurbulenceModel.MAX_STRENGTH,
@@ -196,12 +201,12 @@ class ControlPanel:
             "Slew Rate",
             pygame.Rect(left, top_y, slider_width, slider_height),
             30.0,
-            200.0,
+            1000.0,
             90.0,
             format_string="{:.0f}",
         )
 
-        group_width = (screen_width - 36) // 2
+        group_width = (screen_width - 48) // 3
         group_y = panel_y + 68
         self.trajectory_group = ButtonGroup(
             "Trajectory",
@@ -210,6 +215,7 @@ class ControlPanel:
                 ("Linear", TRAJECTORY_LINEAR),
                 ("Circular", TRAJECTORY_CIRCULAR),
                 ("Random", TRAJECTORY_RANDOM_WALK),
+                ("Fig-8", TRAJECTORY_FIGURE8),
             ],
             selected_index=1,
         )
@@ -222,11 +228,20 @@ class ControlPanel:
             ],
             selected_index=0,
         )
+        self.targets_group = ButtonGroup(
+            "Beacons",
+            pygame.Rect(36 + 2 * group_width, group_y, group_width, 56),
+            [
+                ("1", "1"),
+                ("2", "2"),
+            ],
+            selected_index=0,
+        )
 
         preset_width = screen_width - 24
         self.scenario_group = ButtonGroup(
             "Scenario",
-            pygame.Rect(12, panel_y + 118, preset_width, 44),
+            pygame.Rect(12, panel_y + 132, preset_width, 44),
             [(PRESETS[key].label, key) for key in PRESET_ORDER],
             selected_index=0,
         )
@@ -237,10 +252,16 @@ class ControlPanel:
             self.sensor_noise_slider,
             self.slew_rate_slider,
         )
-        self._groups = (self.trajectory_group, self.detector_group, self.scenario_group)
+        self._groups = (
+            self.trajectory_group,
+            self.detector_group,
+            self.targets_group,
+            self.scenario_group,
+        )
         self._previous_trajectory = self.trajectory_group.selected_value
         self._previous_detector = self.detector_group.selected_value
         self._previous_scenario = self.scenario_group.selected_value
+        self._previous_targets = self.targets_group.selected_value
 
     def contains_point(self, pos: tuple[int, int]) -> bool:
         return self.rect.collidepoint(pos)
@@ -347,6 +368,7 @@ class ControlPanel:
         self,
         on_trajectory_change: Callable[[str], None],
         on_detector_change: Callable[[str], bool],
+        on_targets_change: Callable[[str], None] | None = None,
     ) -> None:
         if self.trajectory_group.selected_value != self._previous_trajectory:
             self._previous_trajectory = self.trajectory_group.selected_value
@@ -358,3 +380,14 @@ class ControlPanel:
                 self._previous_detector = self.detector_group.selected_value
             else:
                 self.detector_group.set_selected_value(self._previous_detector)
+
+        if (
+            on_targets_change is not None
+            and self.targets_group.selected_value != self._previous_targets
+        ):
+            self._previous_targets = self.targets_group.selected_value
+            on_targets_change(self._previous_targets)
+
+    def acknowledge_targets(self, count: str) -> None:
+        self.targets_group.set_selected_value(count)
+        self._previous_targets = count

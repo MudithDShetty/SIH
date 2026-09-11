@@ -1,0 +1,29 @@
+{
+  "benchmark": "SIH26169-Benchmark-2",
+  "video": "logs\\benchmark2\\ps_sample.mp4",
+  "detector": "classical",
+  "frame_count": 240,
+  "resolution": [
+    1280,
+    720
+  ],
+  "video_fps": 30.0,
+  "simulation_duration_s": 8.0,
+  "wall_clock_s": 1.748,
+  "avg_fps": 137.32,
+  "acquisition_time_s": 0.0,
+  "avg_reacquisition_time_s": 1.0,
+  "reacquisition_count": 1,
+  "lock_retention_pct": 81.25,
+  "target_loss_pct": 18.75,
+  "avg_centroid_error_px": 0.7812,
+  "max_centroid_error_px": 3.2312,
+  "rmse_centroid_error_px": 0.8648,
+  "avg_processing_time_ms": 5.029,
+  "max_processing_time_ms": 6.781,
+  "pct_locked": 81.25,
+  "pct_coasting": 6.25,
+  "pct_lost": 12.5,
+  "gt_frames": 195,
+  "ptz_bypassed": true
+}

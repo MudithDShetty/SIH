@@ -1,13 +1,9 @@
 """Link readiness scoring for coarse-to-fine FSOC handoff decision support.
 
-This module estimates whether the current coarse-tracking performance, together
-with the active disturbance severity, would likely be good enough to hand off
-to a fine-pointing stage in a real free-space optical communication (FSOC) system.
+v2 prefers a physics-informed SNR / fade-margin score from ``OpticalLink`` when
+available, and falls back to the original weighted heuristic otherwise.
 
-The score is a decision-support heuristic, not a certified link-budget, BER, or
-outage calculation. It combines normalized tracking error, turbulence, vibration,
-and lock-state inputs into a single 0-1 readiness value for live demos and
-reports.
+Still a decision-support signal — not a certified BER or outage calculation.
 """
 
 from __future__ import annotations
@@ -21,13 +17,21 @@ from tracker.kalman_tracker import (
     TRACKING_LOST,
 )
 
-# v1 weighted heuristic. This is NOT a physical BER/outage model.
+# Legacy heuristic weights (fallback when SNR is not supplied).
 WEIGHT_PIXEL_ERROR = 0.40
 WEIGHT_TURBULENCE = 0.20
 WEIGHT_VIBRATION = 0.20
 WEIGHT_TRACKING_STATE = 0.20
 
+# Physics-informed blend when SNR is available.
+WEIGHT_SNR = 0.45
+WEIGHT_POINTING = 0.25
+WEIGHT_CHANNEL = 0.15
+WEIGHT_LOCK = 0.15
+
 COASTING_STATE_FACTOR = 0.35
+SNR_HANDOFF_DB = 10.0
+SNR_EXCELLENT_DB = 25.0
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,9 @@ class LinkReadinessResult:
     turbulence_subscore: float
     vibration_subscore: float
     tracking_state_subscore: float
+    snr_db: float | None = None
+    fade_margin_db: float | None = None
+    mode: str = "heuristic"
 
 
 class LinkReadinessScore:
@@ -58,6 +65,11 @@ class LinkReadinessScore:
         turbulence_strength: float,
         vibration_amplitude: float,
         tracking_state: str,
+        *,
+        snr_db: float | None = None,
+        fade_margin_db: float | None = None,
+        pointing_loss: float | None = None,
+        scintillation: float | None = None,
     ) -> LinkReadinessResult:
         pixel_error_subscore = self._normalize_pixel_error(pixel_error)
         turbulence_subscore = self._normalize_inverse(
@@ -71,23 +83,64 @@ class LinkReadinessScore:
         tracking_state_subscore = self._tracking_state_subscore(tracking_state)
 
         if tracking_state == TRACKING_LOST:
-            score = 0.0
-        else:
-            # Weighted v1 formula: better sub-scores and LOCKED state raise readiness.
-            score = (
-                WEIGHT_PIXEL_ERROR * pixel_error_subscore
-                + WEIGHT_TURBULENCE * turbulence_subscore
-                + WEIGHT_VIBRATION * vibration_subscore
-                + WEIGHT_TRACKING_STATE * tracking_state_subscore
+            return LinkReadinessResult(
+                score=0.0,
+                pixel_error_subscore=pixel_error_subscore,
+                turbulence_subscore=turbulence_subscore,
+                vibration_subscore=vibration_subscore,
+                tracking_state_subscore=tracking_state_subscore,
+                snr_db=snr_db,
+                fade_margin_db=fade_margin_db,
+                mode="lost",
             )
-            score = self._clamp(score)
 
+        if snr_db is not None:
+            snr_sub = self._clamp(
+                (snr_db - SNR_HANDOFF_DB) / (SNR_EXCELLENT_DB - SNR_HANDOFF_DB)
+            )
+            pointing_sub = (
+                self._clamp(pointing_loss)
+                if pointing_loss is not None
+                else pixel_error_subscore
+            )
+            if scintillation is not None:
+                # Penalize deep fades (I << 1) more than bright spikes.
+                channel_sub = self._clamp(min(1.0, scintillation))
+            else:
+                channel_sub = 0.5 * (turbulence_subscore + vibration_subscore)
+
+            score = (
+                WEIGHT_SNR * snr_sub
+                + WEIGHT_POINTING * pointing_sub
+                + WEIGHT_CHANNEL * channel_sub
+                + WEIGHT_LOCK * tracking_state_subscore
+            )
+            return LinkReadinessResult(
+                score=self._clamp(score),
+                pixel_error_subscore=pixel_error_subscore,
+                turbulence_subscore=turbulence_subscore,
+                vibration_subscore=vibration_subscore,
+                tracking_state_subscore=tracking_state_subscore,
+                snr_db=snr_db,
+                fade_margin_db=fade_margin_db,
+                mode="snr",
+            )
+
+        score = (
+            WEIGHT_PIXEL_ERROR * pixel_error_subscore
+            + WEIGHT_TURBULENCE * turbulence_subscore
+            + WEIGHT_VIBRATION * vibration_subscore
+            + WEIGHT_TRACKING_STATE * tracking_state_subscore
+        )
         return LinkReadinessResult(
-            score=score,
+            score=self._clamp(score),
             pixel_error_subscore=pixel_error_subscore,
             turbulence_subscore=turbulence_subscore,
             vibration_subscore=vibration_subscore,
             tracking_state_subscore=tracking_state_subscore,
+            snr_db=snr_db,
+            fade_margin_db=fade_margin_db,
+            mode="heuristic",
         )
 
     def _normalize_pixel_error(self, pixel_error: float) -> float:

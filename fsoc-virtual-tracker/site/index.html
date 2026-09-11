@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BeamLock — SIH26169 | Team Cadets</title>
+  <meta name="description" content="BeamLock: physics-informed virtual coarse-to-fine PAT for mobile FSOC. Smart India Hackathon 2026." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topnav">
+    <div class="brand">BEAMLOCK <span>SIH26169 · Team Cadets</span></div>
+    <nav>
+      <a class="active" href="index.html">Home</a>
+      <a href="demo.html">Try browser demo</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="https://github.com/MudithDShetty/SIH" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <div class="meta">
+          <span class="chip">Smart India Hackathon 2026</span>
+          <span class="chip">Smart Automation</span>
+          <span class="chip">Software</span>
+        </div>
+        <h1>Virtual camera tracking for coarse FSOC alignment</h1>
+        <p class="lead">
+          BeamLock is a real-time PAT sandbox: detect a beacon, Kalman-track it,
+          slew an AZ/EL camera under turbulence, recover with raster search, and
+          hand off to a Fine 4-QD mock when Link Readiness is high.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="demo.html">Try browser demo</a>
+          <a class="btn btn-secondary" href="architecture.html">See architecture</a>
+          <a class="btn btn-warn" href="https://github.com/MudithDShetty/SIH/tree/main/fsoc-virtual-tracker" target="_blank" rel="noopener">Full desktop prototype</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <video controls playsinline preload="metadata" poster="assets/uav_locked.png" style="width:100%;display:block;background:#000;aspect-ratio:16/10;object-fit:cover;">
+          <source src="assets/beamlock_sih_demo.mp4" type="video/mp4" />
+        </video>
+        <div class="cap">Recorded from the real desktop stack: Calm → UAV → Stress → lock-loss/re-acq → AI+fusion.</div>
+      </div>
+    </section>
+
+    <div class="notice">
+      <strong>For judges:</strong> The video above is the full BeamLock prototype (Pygame + Classical/AI+fusion + physics).
+      Netlify also hosts a lightweight browser mini-demo for quick interaction.
+      Run the complete app locally from GitHub for hands-on evaluation.
+    </div>
+
+    <section class="steps" style="margin-top:18px;">
+      <h2>Full prototype demo video</h2>
+      <p style="color:var(--muted);font-size:0.92rem;margin:0 0 10px;">
+        Headless recording of the real simulation loop (same detectors, Kalman, raster re-acq, Fine handoff).
+      </p>
+      <video controls playsinline preload="metadata" style="width:100%;max-height:480px;background:#000;border-radius:12px;border:1px solid var(--line);">
+        <source src="assets/beamlock_sih_demo.mp4" type="video/mp4" />
+      </video>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>What it does</h3>
+        <ul>
+          <li>Closed-loop AZ/EL coarse PAT</li>
+          <li>Cn² physics channel + SNR readiness</li>
+          <li>Classical or AI+fusion detection</li>
+          <li>Raster re-acq · Fine handoff ≥0.7</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>Scenarios</h3>
+        <ul>
+          <li><strong>Calm</strong> — baseline lock</li>
+          <li><strong>UAV</strong> — moderate channel</li>
+          <li><strong>Stress</strong> — lose → search → re-lock</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>Evidence</h3>
+        <ul>
+          <li>Monte Carlo Tacq: UAV/Stress 40/40 within ESTOL &lt;60 s</li>
+          <li>Matched-seed Classical vs AI logs</li>
+          <li>Streamlit report + PDF from desktop</li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="steps">
+      <h2>Run the full desktop prototype (recommended for evaluation)</h2>
+      <ol>
+        <li>Clone: <code>git clone https://github.com/MudithDShetty/SIH.git</code></li>
+        <li><code>cd SIH/fsoc-virtual-tracker</code></li>
+        <li>Create venv, then <code>pip install -r requirements.txt</code></li>
+        <li>Run: <code>python main.py</code></li>
+        <li>Presets: <code>F1</code> Calm · <code>F2</code> UAV · <code>F3</code> Stress · <code>T</code> Classical/AI+fusion · <code>L</code> force loss · <code>B</code> multi-beacon</li>
+        <li>Report: <code>streamlit run report.py</code></li>
+      </ol>
+    </section>
+
+    <section>
+      <h2 style="margin: 28px 0 8px; font-size: 1.15rem;">Prototype stills</h2>
+      <div class="gallery">
+        <figure>
+          <img src="assets/physics_calm.png" alt="Calm scenario" />
+          <figcaption>Calm — clear channel</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/physics_uav.png" alt="UAV scenario" />
+          <figcaption>UAV — moderate Cn² + vibration</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/physics_stress.png" alt="Stress scenario" />
+          <figcaption>Stress — scintillation / noise</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/reacquire.png" alt="Re-acquisition" />
+          <figcaption>Re-acquisition after lock loss</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/after_blind.png" alt="After forced blind" />
+          <figcaption>After forced detector blind (<code>L</code>)</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/uav_locked.png" alt="UAV locked" />
+          <figcaption>UAV locked tracking</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <footer class="footer">
+      BeamLock · Team Cadets · SIH26169 · Physics-informed sandbox (not certified BER / flight plant).
+      Source: <a href="https://github.com/MudithDShetty/SIH">github.com/MudithDShetty/SIH</a>
+    </footer>
+  </main>
+</body>
+</html>

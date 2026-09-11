@@ -1,4 +1,7 @@
-# FSOC Virtual Tracker — User Manual
+# BeamLock / FSOC Virtual Tracker — User Manual
+
+> **Submission PDF:** [`sih_user_manual.pdf`](sih_user_manual.pdf) (LaTeX source: [`sih_user_manual.tex`](sih_user_manual.tex)).  
+> This markdown file is a quick-reference twin of the official SIH user-manual deliverable.
 
 ## 1. Overview
 
@@ -31,7 +34,8 @@ This creates `weights/beacon_yolov8n.pt`. Without it, the **AI** detector button
 ## 3. Running the application
 
 ```bash
-python main.py
+python main.py                  # Physics profile (default)
+python main.py --profile ps     # SIH Parameters-table mode
 ```
 
 - Window size: **1280 × 880** (simulation + control panel)
@@ -71,11 +75,14 @@ python main.py
 
 | Key | Action |
 |---|---|
-| `1` / `2` / `3` | Trajectory: linear / circular / random walk |
+| `1` / `2` / `3` / `4` | Trajectory: linear / circular / random / figure-8 |
 | `Q` / `A` | Turbulence ±0.1 |
 | `W` / `S` | Vibration ±0.5 |
 | `E` / `D` | Sensor noise ±0.05 |
 | `T` | Toggle Classical ↔ AI detector |
+| `B` | Toggle 1 ↔ 2 beacons |
+| `N` | Cycle noise type (Gaussian / salt–pepper / Poisson) |
+| `M` | Cycle weather (Clear → … → Low light) |
 | `L` | Blind detector 60 frames (test re-acquisition) |
 | `F1` | Scenario: Calm |
 | `F2` | Scenario: UAV (benchmark) |
@@ -100,7 +107,14 @@ streamlit run report.py
 
 - Select a CSV from `logs/`
 - Enable **Compare two runs** for classical vs AI evidence
-- Use **Download report** for a text summary to attach to your submission
+- Use **Download report (.txt)** or **Download report (.pdf)** for judges
+
+### Windows executable (optional)
+
+```bash
+pip install pyinstaller
+python scripts/build_exe.py
+```
 
 ### Automated benchmark
 

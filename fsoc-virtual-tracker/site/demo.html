@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BeamLock browser demo — SIH26169</title>
+  <meta name="description" content="Interactive browser demo of BeamLock coarse PAT concepts for SIH judges." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topnav">
+    <div class="brand">BEAMLOCK <span>Browser demo</span></div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a class="active" href="demo.html">Try browser demo</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="https://github.com/MudithDShetty/SIH" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <h1 style="font-size:1.6rem;margin:0 0 8px;">Coarse PAT mini-demo</h1>
+    <p class="lead" style="margin-bottom:14px;">
+      Simplified browser version for judges: moving beacon, FOV camera, lock states,
+      readiness gauge, and raster-style search when lost. Not the full YOLO / physics stack —
+      that runs via <code>python main.py</code> on desktop.
+    </p>
+
+    <div class="demo-layout">
+      <div class="stage">
+        <canvas id="sim" width="960" height="540" aria-label="BeamLock simulation canvas"></canvas>
+        <div class="hud" id="hud"></div>
+      </div>
+
+      <aside class="panel-controls">
+        <h2>Controls</h2>
+        <div class="ctrl">
+          <label>Scenario <span id="scenarioLabel">UAV</span></label>
+          <select id="scenario" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);">
+            <option value="calm">Calm</option>
+            <option value="uav" selected>UAV</option>
+            <option value="stress">Stress</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label>Turbulence <span id="turbVal">4.0</span></label>
+          <input id="turb" type="range" min="0" max="10" step="0.1" value="4" />
+        </div>
+        <div class="ctrl">
+          <label>Vibration <span id="vibVal">8.0</span></label>
+          <input id="vib" type="range" min="0" max="20" step="0.5" value="8" />
+        </div>
+        <div class="ctrl">
+          <label>Sensor noise <span id="noiseVal">0.20</span></label>
+          <input id="noise" type="range" min="0" max="0.6" step="0.01" value="0.2" />
+        </div>
+        <div class="ctrl">
+          <label>Detector</label>
+          <select id="detector" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);">
+            <option value="classical">Classical</option>
+            <option value="fusion" selected>AI+fusion (approx.)</option>
+          </select>
+        </div>
+        <div class="row-btns">
+          <button class="btn btn-warn" id="btnBlind" type="button">Force lock loss</button>
+          <button class="btn btn-secondary" id="btnReset" type="button">Reset</button>
+        </div>
+        <p class="hint">
+          Green box = camera FOV · Cyan = detection · Magenta = Kalman estimate ·
+          Orange path = raster search when LOST.<br />
+          Status: <span id="stateBadge" class="badge badge-ok">LOCKED</span>
+        </p>
+        <p class="hint">
+          Full prototype:
+          <a href="https://github.com/MudithDShetty/SIH/tree/main/fsoc-virtual-tracker" target="_blank" rel="noopener">GitHub / fsoc-virtual-tracker</a>
+        </p>
+      </aside>
+    </div>
+
+    <footer class="footer">
+      Browser demo · illustrative only · full physics + YOLO in desktop app.
+    </footer>
+  </main>
+
+  <script src="demo.js"></script>
+</body>
+</html>

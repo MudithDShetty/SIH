@@ -32,7 +32,7 @@ PRESETS: dict[str, ScenarioPreset] = {
         sensor_noise=0.05,
         slew_rate=90.0,
         trajectory=TRAJECTORY_CIRCULAR,
-        description="Clear sky baseline — low noise, no platform jitter.",
+        description="Clear sky baseline — low Cn2, no platform jitter.",
     ),
     SCENARIO_UAV: ScenarioPreset(
         label="UAV",
@@ -42,7 +42,7 @@ PRESETS: dict[str, ScenarioPreset] = {
         sensor_noise=0.2,
         slew_rate=90.0,
         trajectory=TRAJECTORY_CIRCULAR,
-        description="Moderate mobile-platform conditions (benchmark preset).",
+        description="Moderate Cn2 + tip/tilt (mobile-platform benchmark).",
     ),
     SCENARIO_STRESS: ScenarioPreset(
         label="Stress",
@@ -52,7 +52,7 @@ PRESETS: dict[str, ScenarioPreset] = {
         sensor_noise=0.35,
         slew_rate=120.0,
         trajectory=TRAJECTORY_RANDOM_WALK,
-        description="High turbulence and jitter — acquisition stress test.",
+        description="Strong Cn2, scintillation, and jitter — acquisition stress.",
     ),
 }
 

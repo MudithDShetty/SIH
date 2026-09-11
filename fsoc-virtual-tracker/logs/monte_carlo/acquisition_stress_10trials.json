@@ -1,0 +1,93 @@
+{
+  "scenario": "stress",
+  "trials": 10,
+  "acquired": 10,
+  "timeouts": 0,
+  "estol_bound_s": 60.0,
+  "estol_pass_count": 10,
+  "median_s": 0.967,
+  "p95_s": 1.0,
+  "mean_s": 0.9583999999999999,
+  "results": [
+    {
+      "seed": 42,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.983,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 59,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.983,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 76,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.95,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 93,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 1.017,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 110,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.917,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 127,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.917,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 144,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.917,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 161,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 1.0,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 178,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.933,
+      "timed_out": false,
+      "estol_pass": true
+    },
+    {
+      "seed": 195,
+      "scenario": "stress",
+      "acquired": true,
+      "time_to_lock_s": 0.967,
+      "timed_out": false,
+      "estol_pass": true
+    }
+  ]
+}
