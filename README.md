@@ -11,7 +11,7 @@
 | Performance logs | [`fsoc-virtual-tracker/logs/`](fsoc-virtual-tracker/logs/) |
 | Executable build script | [`fsoc-virtual-tracker/scripts/build_exe.py`](fsoc-virtual-tracker/scripts/build_exe.py) |
 | Windows EXE zip | [`fsoc-virtual-tracker/releases/BeamLock_FSOCVirtualTracker_Lite_Win64.zip`](fsoc-virtual-tracker/releases/BeamLock_FSOCVirtualTracker_Lite_Win64.zip) |
-| Browser site | [`fsoc-virtual-tracker/site/`](fsoc-virtual-tracker/site/) |
+
 
 ## Quick start
 
