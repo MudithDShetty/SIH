@@ -33,7 +33,6 @@ from config import Config
 from control import FinePointingController, HANDOFF_ENTER, ReacquisitionController
 from control.fine_pointing import HANDOFF_CRITERIA, HANDOFF_STABLE_FRAMES
 from detector.classical_detector import ClassicalDetector
-from detector.hybrid_detector import HybridDetector
 from disturbance import SensorNoiseModel, TurbulenceModel, VibrationModel
 from disturbance.weather import NOISE_MODES, WEATHER_ORDER, WEATHER_PRESETS
 from metrics import LinkReadinessResult, LinkReadinessScore, LogSnapshot, RunLogger
@@ -350,9 +349,9 @@ def main(profile_name: str = "physics") -> None:
     )
     classical_detector = ClassicalDetector()
     ai_detector: AIDetector | None = None
-    hybrid_detector: HybridDetector | None = None
+    hybrid_detector = None
     use_ai_detector = False
-    active_detector: ClassicalDetector | HybridDetector = classical_detector
+    active_detector: ClassicalDetector | object = classical_detector
     tracker = BeaconTracker(
         initial_x=config.screen_width / 2,
         initial_y=config.screen_height / 2,
@@ -499,6 +498,8 @@ def main(profile_name: str = "physics") -> None:
                     print(exc)
                     return False
             if hybrid_detector is None:
+                from detector.hybrid_detector import HybridDetector
+
                 hybrid_detector = HybridDetector(ai_detector, classical_detector)
             use_ai_detector = True
             active_detector = hybrid_detector

@@ -16,7 +16,8 @@ Real-time software PAT sandbox: virtual scene + AZ/EL camera, Classical / hybrid
 | **Technical report (PDF)** | [`docs/BeamLock_SIH_Technical_Report.pdf`](docs/BeamLock_SIH_Technical_Report.pdf) |
 | **User manual (PDF)** | [`docs/sih_user_manual.pdf`](docs/sih_user_manual.pdf) |
 | **Performance logs** | [`logs/`](logs/) · [README](logs/README.md) · [Evidence index](logs/PERFORMANCE_INDEX.md) |
-| **Executable (build)** | [`scripts/build_exe.py`](scripts/build_exe.py) → `dist/FSOCVirtualTracker/FSOCVirtualTracker.exe` |
+| **Executable (Windows zip)** | [`releases/BeamLock_FSOCVirtualTracker_Lite_Win64.zip`](releases/BeamLock_FSOCVirtualTracker_Lite_Win64.zip) · [notes](releases/README.md) |
+| **Executable (build script)** | [`scripts/build_exe.py`](scripts/build_exe.py) (`--lite` for shippable; `--full` for local Torch) |
 | **Source code** | this repository (`fsoc-virtual-tracker/`) — modular packages, documented entry points |
 | **Browser / judge site** | [`site/`](site/) (Netlify static demo) |
 | **Report figures** | [`docs/figures/`](docs/figures/) |
@@ -76,14 +77,18 @@ streamlit run report.py
 
 Pick a CSV from `logs/`, compare Classical vs AI, download PDF/TXT.
 
-### 5. Optional Windows `.exe`
+### 5. Windows `.exe` (download)
+
+Download [`releases/BeamLock_FSOCVirtualTracker_Lite_Win64.zip`](releases/BeamLock_FSOCVirtualTracker_Lite_Win64.zip), unzip, run `FSOCVirtualTracker_Lite.exe`.
+
+Or rebuild:
 
 ```bash
 pip install pyinstaller
-python scripts/build_exe.py
+python scripts/build_exe.py --lite
 ```
 
-Produces `dist/FSOCVirtualTracker/FSOCVirtualTracker.exe` (large Torch/YOLO bundle). Prefer the venv for demos if disk space is limited.
+Lite = Classical path (GitHub-sized). Full Torch+CUDA (`--full`) is multi-GB and is for local USB demos only, not the git tree.
 
 ### 6. Browser mini-demo (judges)
 
