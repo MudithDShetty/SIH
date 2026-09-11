@@ -13,14 +13,13 @@ Real-time software PAT sandbox: virtual scene + AZ/EL camera, Classical / hybrid
 
 | Deliverable | Link |
 |---|---|
-| **Technical report (PDF)** | [`docs/sih_technical_report_v12.pdf`](docs/sih_technical_report_v12.pdf) · [`docs/BeamLock_SIH_Technical_Report.pdf`](docs/BeamLock_SIH_Technical_Report.pdf) · [LaTeX](docs/sih_technical_report.tex) |
-| **User manual (PDF)** | [`docs/sih_user_manual.pdf`](docs/sih_user_manual.pdf) · [LaTeX source](docs/sih_user_manual.tex) |
+| **Technical report (PDF)** | [`docs/BeamLock_SIH_Technical_Report.pdf`](docs/BeamLock_SIH_Technical_Report.pdf) |
+| **User manual (PDF)** | [`docs/sih_user_manual.pdf`](docs/sih_user_manual.pdf) |
 | **Performance logs** | [`logs/`](logs/) · [README](logs/README.md) · [Evidence index](logs/PERFORMANCE_INDEX.md) |
 | **Executable (build)** | [`scripts/build_exe.py`](scripts/build_exe.py) → `dist/FSOCVirtualTracker/FSOCVirtualTracker.exe` |
 | **Source code** | this repository (`fsoc-virtual-tracker/`) — modular packages, documented entry points |
 | **Browser / judge site** | [`site/`](site/) (Netlify static demo) |
-
-Deep-dive engineering notes (optional): [`docs/beamlock_technical_deep_dive.pdf`](docs/beamlock_technical_deep_dive.pdf)
+| **Report figures** | [`docs/figures/`](docs/figures/) |
 
 ---
 
@@ -95,7 +94,7 @@ cd site
 python -m http.server 8080
 ```
 
-Open `http://localhost:8080`. Deploy notes: [`docs/netlify_deploy.md`](docs/netlify_deploy.md).
+Open `http://localhost:8080`. Netlify publish dir is `site/` (see root / package `netlify.toml`).
 
 ---
 
@@ -127,7 +126,7 @@ fsoc-virtual-tracker/
   metrics/             # Link readiness + CSV/JSON logging
   ui/                  # Control panel + presets
   scripts/             # Comparison, Monte Carlo, Benchmark-2, EXE, demo video
-  docs/                # Technical report + user manual PDFs
+  docs/                # Judge PDFs + figures (technical report, user manual)
   logs/                # Performance evidence
   site/                # Browser landing / mini-demo
   weights/             # YOLO beacon weights
@@ -147,7 +146,7 @@ python scripts/benchmark_video.py --video logs/benchmark2/ps_sample.mp4 --gt log
 python scripts/record_demo_video.py --fps 15 --copy-site
 ```
 
-SIH compliance mapping: [`docs/sih_compliance.md`](docs/sih_compliance.md) · PS gaps: [`docs/ps_compliance_gaps.md`](docs/ps_compliance_gaps.md)
+Compliance and demo notes live in the technical report PDF and [`logs/PERFORMANCE_INDEX.md`](logs/PERFORMANCE_INDEX.md).
 
 ---
 

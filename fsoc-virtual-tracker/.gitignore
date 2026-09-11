@@ -14,7 +14,7 @@ build/
 yolov8n.pt
 yolo26n.pt
 
-# LaTeX build junk (keep *.tex and submission PDFs)
+# LaTeX build junk
 docs/*.aux
 docs/*.log
 docs/*.out
@@ -22,6 +22,22 @@ docs/*.toc
 docs/*_build.*
 docs/sih_technical_report_v11.*
 docs/sih_technical_report_build.*
+
+# Developer-only docs (keep local; not on GitHub for judges)
+docs/architecture.*
+docs/architecture_*.png
+docs/beamlock_technical_deep_dive.*
+docs/demo_checklist.md
+docs/link_readiness.md
+docs/netlify_deploy.md
+docs/ps_compliance_gaps.md
+docs/sih_compliance.md
+docs/sih_technical_report.pdf
+docs/sih_technical_report.tex
+docs/sih_technical_report_v12.pdf
+docs/sih_user_manual.tex
+docs/technical_report.md
+docs/user_manual.md
 
 # Scratch / debug logs
 logs/_eval*
